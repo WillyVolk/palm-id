@@ -7,8 +7,8 @@
 
 // Bump this version on every deploy that changes index.html — it forces the
 // service worker to re-cache the app shell so installed users get the update.
-const CACHE_NAME    = 'palmid-v6';
-const CACHE_VERSION = 6;
+const CACHE_NAME    = 'palmid-v7';
+const CACHE_VERSION = 7;
 
 // Files to cache on install (app shell)
 const APP_SHELL = [
