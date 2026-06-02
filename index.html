@@ -1912,6 +1912,54 @@
 
       /* Home screen stays dark green gradient — unchanged */
     }
+    /* ─── Rarity pill (result screen) ─────────────────────── */
+    .rarity-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 999px;
+      font-size: .8rem; font-weight: 700; margin-left: 6px;
+      color: #fff; vertical-align: middle;
+    }
+    .rarity-common   { background: #52b788; }
+    .rarity-uncommon { background: #0EA5E9; }
+    .rarity-rare     { background: #F59E0B; }
+
+    /* ─── Collection points sub-line (dark hero) ──────────── */
+    .collection-points { font-size: .95rem; font-weight: 800; color: #fde047; margin-top: 4px; }
+
+    /* ─── Field Guide (collection completion grid) ────────── */
+    .fieldguide { margin: 4px 0 26px; }
+    .fieldguide-head {
+      display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 8px;
+    }
+    .fieldguide-title {
+      font-size: .78rem; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: #2d6a4f;
+    }
+    .fieldguide-count { font-size: .85rem; font-weight: 800; color: #1b4332; }
+    .fieldguide-bar {
+      height: 8px; border-radius: 999px; background: #d8ece0; overflow: hidden; margin-bottom: 16px;
+    }
+    .fieldguide-bar > span {
+      display: block; height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg,#52b788,#2d6a4f); transition: width .6s ease;
+    }
+    .fieldguide-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .fg-tile {
+      position: relative; border-radius: 14px; padding: 14px 8px 11px; text-align: center;
+      min-height: 94px; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; border: 1px solid #e4efe8;
+    }
+    .fg-tile.found  { background: #ecf7f1; }
+    .fg-tile.locked { background: #f4f6f5; }
+    .fg-emoji { font-size: 1.9rem; line-height: 1; margin-bottom: 5px; }
+    .fg-tile.locked .fg-emoji { filter: grayscale(1); opacity: .3; }
+    .fg-name { font-size: .68rem; font-weight: 700; color: #1b4332; line-height: 1.2; }
+    .fg-tile.locked .fg-name { color: #9aa6a0; }
+    .fg-check { position: absolute; top: 6px; right: 8px; font-size: .8rem; }
+    .fg-rdot { position: absolute; top: 9px; left: 9px; width: 8px; height: 8px; border-radius: 50%; }
+    .fg-rdot.common   { background: #52b788; }
+    .fg-rdot.uncommon { background: #0EA5E9; }
+    .fg-rdot.rare     { background: #F59E0B; }
   </style>
 </head>
 <body>
@@ -1965,7 +2013,7 @@
     <!-- Sticker content injected by JS -->
   </div>
   <div id="celebration-title" class="celebration-title"></div>
-  <div class="celebration-sub">Added to your collection!</div>
+  <div class="celebration-sub" id="celebration-sub">Added to your collection!</div>
   <div id="celebration-milestone-banner" class="celebration-milestone-banner hidden"></div>
   <div class="celebration-dismiss-hint">Tap anywhere to continue</div>
 </div>
@@ -2247,12 +2295,16 @@
     <div class="collection-hero">
       <div class="collection-count-num" id="collection-count-num">0</div>
       <div class="collection-count-label">species identified</div>
+      <div class="collection-points" id="collection-points"></div>
     </div>
 
     <!-- Milestone chips strip -->
     <div class="milestones-strip" id="milestones-strip" aria-label="Milestones">
       <!-- Populated by JS -->
     </div>
+
+    <!-- Field Guide completion grid -->
+    <div id="fieldguide-wrap"><!-- Populated by JS --></div>
 
     <!-- Sticker grid section label -->
     <div class="collection-section-label" id="collection-section-label" style="display:none">
@@ -2432,6 +2484,7 @@ Respond ONLY with valid JSON — no markdown, no explanation outside the JSON:
   "commonName": "Royal Palm",
   "scientificName": "Roystonea regia",
   "confidence": "high",
+  "rarity": "common",
   "identifyingFeatures": ["bright green crownshaft", "cement-gray ringed trunk"],
   "description": "2-3 sentence description",
   "status": "native",
@@ -2439,6 +2492,8 @@ Respond ONLY with valid JSON — no markdown, no explanation outside the JSON:
   "careNotes": "brief note or null",
   "couldAlsoBe": "Joannis Palm (Veitchia joannis) — distinguish by checking trunk height and crownshaft brightness"
 }
+
+The rarity field describes how often someone would ENCOUNTER this palm in cultivation and landscaping in the relevant region — NOT its conservation status in the wild. Use exactly one of: "common" (seen on most blocks — e.g. Coconut, Royal, Queen, Christmas, Sabal, Areca), "uncommon" (seen here and there), or "rare" (a genuine treat to spot in person — e.g. Old Man Palm, Buccaneer Palm, or anything mostly confined to botanical gardens). Note: many palms are endangered in the wild yet planted everywhere (Bottle and Spindle Palm, for example) — those count as "common".
 
 The couldAlsoBe field should be null if confidence is high, or a string naming the alternative species and exactly what to look for to distinguish them.
 
@@ -2933,6 +2988,18 @@ function renderResults(result, thumbDataUrl, coords) {
   confBadge.className = `badge conf-pill badge-${conf}`;
   confBadge.textContent = `${confDot} ${conf.charAt(0).toUpperCase() + conf.slice(1)} confidence`;
 
+  // ── Rarity + points pill ──
+  const rarity = rarityOf(result);
+  const rInfo  = RARITY[rarity];
+  let rPill = $('rarity-badge');
+  if (!rPill) {
+    rPill = document.createElement('span');
+    rPill.id = 'rarity-badge';
+    confBadge.insertAdjacentElement('afterend', rPill);
+  }
+  rPill.className = `rarity-pill rarity-${rarity}`;
+  rPill.textContent = `${rInfo.emoji} ${rInfo.label} · +${rInfo.points} pts`;
+
   // ── Description ──
   $('result-description').textContent = result.description || '';
 
@@ -3255,6 +3322,34 @@ const MILESTONES = [
   { count: 50, label: '50 Species',   emoji: '👑' },
 ];
 
+// ─── Rarity + Points ──────────────────────────────────────────
+const RARITY = {
+  common:   { label: 'Common',   points: 10, emoji: '🌴' },
+  uncommon: { label: 'Uncommon', points: 25, emoji: '✨' },
+  rare:     { label: 'Rare',     points: 50, emoji: '🌟' },
+};
+
+// Resolve a rarity tier for a result: trust the model, then fall back to the
+// field-guide list (by scientific or common name), else default to common.
+function rarityOf(result) {
+  const r = (result.rarity || '').toLowerCase();
+  if (RARITY[r]) return r;
+  const sci  = (result.scientificName || '').toLowerCase();
+  const name = (result.commonName || '').toLowerCase();
+  const match = POTD_DATA.find(p => p.sci.toLowerCase() === sci || p.name.toLowerCase() === name);
+  return (match && match.rarity) ? match.rarity : 'common';
+}
+
+function pointsFor(rarity) { return (RARITY[rarity] || RARITY.common).points; }
+
+// Total collection points = sum of rarity points across unique found species.
+// Resolves rarity per entry (stored first, then reference list) so species
+// collected before rarity existed still score correctly.
+function totalPoints(col) {
+  return Object.entries(col).reduce((sum, [name, e]) =>
+    sum + pointsFor(rarityOf({ rarity: e.rarity, scientificName: e.scientificName, commonName: name })), 0);
+}
+
 // ─── Collection Storage ───────────────────────────────────────
 function getCollection() {
   try {
@@ -3285,6 +3380,7 @@ function recordToCollection(result) {
       firstSeen:      new Date().toISOString(),
       count:          1,
       gradientIdx:    existingCount % STICKER_GRADIENTS.length,
+      rarity:         rarityOf(result),
     };
   } else {
     col[key].count += 1;
@@ -3322,6 +3418,16 @@ function showCelebration(result) {
 
   // Set title
   $('celebration-title').textContent = `${result.commonName}!`;
+
+  // Rarity-aware subtitle + points
+  const cRarity = rarityOf(result);
+  const cInfo   = RARITY[cRarity];
+  const sub     = $('celebration-sub');
+  if (sub) {
+    sub.textContent = cRarity === 'common'
+      ? `New species! +${cInfo.points} points`
+      : `${cInfo.emoji} ${cInfo.label} find! +${cInfo.points} points`;
+  }
 
   // Hide milestone banner inside overlay — it shows as a toast after dismissal
   $('celebration-milestone-banner').classList.add('hidden');
@@ -3410,6 +3516,10 @@ function renderCollection() {
   // Render milestones strip
   renderMilestones(speciesCount);
 
+  // Total points + field guide (shown even when empty — it's the goal map)
+  $('collection-points').textContent = `🏆 ${totalPoints(col)} points`;
+  renderFieldGuide(col);
+
   // Render sticker grid or empty state
   const gridWrap    = $('sticker-grid-wrap');
   const sectionLabel = $('collection-section-label');
@@ -3462,6 +3572,48 @@ function renderCollection() {
   });
 
   gridWrap.appendChild(grid);
+}
+
+// ─── Field Guide (collection completion grid) ─────────────────
+function renderFieldGuide(col) {
+  const wrap = $('fieldguide-wrap');
+  if (!wrap) return;
+
+  const foundSci  = new Set(Object.values(col).map(e => (e.scientificName || '').toLowerCase()).filter(Boolean));
+  const foundName = new Set(Object.keys(col).map(n => n.toLowerCase()));
+  const isFound = p => foundSci.has(p.sci.toLowerCase()) || foundName.has(p.name.toLowerCase());
+
+  const total      = POTD_DATA.length;
+  const foundCount = POTD_DATA.filter(isFound).length;
+  const pct        = Math.round((foundCount / total) * 100);
+
+  // Found species first; within each group, sort by rarity so the rare hunts stand out
+  const order  = { common: 0, uncommon: 1, rare: 2 };
+  const sorted = [...POTD_DATA].sort((a, b) => {
+    const fa = isFound(a), fb = isFound(b);
+    if (fa !== fb) return fa ? -1 : 1;
+    return (order[a.rarity] || 0) - (order[b.rarity] || 0);
+  });
+
+  const tiles = sorted.map(p => {
+    const f = isFound(p);
+    return `<div class="fg-tile ${f ? 'found' : 'locked'}">
+        <span class="fg-rdot ${p.rarity}"></span>
+        ${f ? '<span class="fg-check">✅</span>' : ''}
+        <div class="fg-emoji">🌴</div>
+        <div class="fg-name">${escHtml(p.name)}</div>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="fieldguide">
+      <div class="fieldguide-head">
+        <span class="fieldguide-title">🌴 Field Guide</span>
+        <span class="fieldguide-count">${foundCount} / ${total} discovered</span>
+      </div>
+      <div class="fieldguide-bar"><span style="width:${pct}%"></span></div>
+      <div class="fieldguide-grid">${tiles}</div>
+    </div>`;
 }
 
 function renderMilestones(speciesCount) {
@@ -3820,36 +3972,36 @@ function updateHistoryNote(entryId, note) {
    ═══════════════════════════════════════════════════════════ */
 
 const POTD_DATA = [
-  { name: 'Royal Palm',              sci: 'Roystonea regia',          fact: 'Can reach 100 ft and lines some of the most iconic boulevards in Miami and Havana.' },
-  { name: 'Coconut Palm',            sci: 'Cocos nucifera',            fact: 'Has crossed every ocean on its own — coconuts float for months without losing viability.' },
-  { name: 'Bottle Palm',             sci: 'Hyophorbe lagenicaulis',    fact: 'Native only to tiny Round Island near Mauritius — critically endangered in the wild, thriving in yards everywhere else.' },
-  { name: 'Bismarck Palm',           sci: 'Bismarckia nobilis',        fact: 'Named after Otto von Bismarck; its silver-blue fans can span 10 feet across.' },
-  { name: 'Foxtail Palm',            sci: 'Wodyetia bifurcata',        fact: 'Only discovered by Western botanists in 1978 — indigenous Australians had kept its location a closely guarded secret.' },
-  { name: 'Canary Island Date Palm', sci: 'Phoenix canariensis',       fact: 'A single mature specimen can cost $50,000 to transplant due to the sheer size of its root ball.' },
-  { name: 'Sabal Palm',              sci: 'Sabal palmetto',            fact: "Florida's state tree; its spongy wood absorbed British cannonballs so effectively during the Revolutionary War that Fort Moultrie held." },
-  { name: 'Chilean Wine Palm',       sci: 'Jubaea chilensis',          fact: 'Has the world\'s thickest palm trunk — up to 5 feet in diameter — and can live over 1,000 years.' },
-  { name: 'Areca Palm',              sci: 'Dypsis lutescens',          fact: 'One of the most popular houseplants on Earth; NASA studies found it among the best natural air purifiers.' },
-  { name: 'Spindle Palm',            sci: 'Hyophorbe verschaffeltii',  fact: 'Nearly extinct on its native Rodrigues Island, yet so common in South Florida landscaping you\'ll see it on almost every block.' },
-  { name: 'Christmas Palm',          sci: 'Adonidia merrillii',        fact: 'Gets its name from clusters of bright red fruit that ripen right on schedule every December.' },
-  { name: 'Windmill Palm',           sci: 'Trachycarpus fortunei',     fact: 'The hardiest palm in cultivation — survives temperatures as low as 5°F (−15°C) and grows in Scotland.' },
-  { name: 'African Oil Palm',        sci: 'Elaeis guineensis',         fact: 'Produces more edible oil per acre than any other plant; palm oil appears in roughly half of all packaged foods worldwide.' },
-  { name: 'Talipot Palm',            sci: 'Corypha umbraculifera',     fact: 'Produces the largest flower cluster of any plant on Earth, with millions of blooms — then dies immediately, having flowered just once in 30–80 years.' },
-  { name: 'Coco de Mer',             sci: 'Lodoicea maldivica',        fact: 'Bears the largest seed of any plant — a single nut can weigh 55 lbs and takes up to 7 years to germinate.' },
-  { name: 'Silver Palm',             sci: 'Coccothrinax argentata',    fact: 'The brilliant silver underside of each frond comes from a waxy coating that reflects heat and deters insects.' },
-  { name: 'Buccaneer Palm',          sci: 'Pseudophoenix sargentii',   fact: 'One of Florida\'s rarest native palms — only a few hundred remain in the wild across the Florida Keys.' },
-  { name: 'Peach Palm',              sci: 'Bactris gasipaes',          fact: 'Cultivated in the Amazon for over 3,000 years; its nutritious orange fruit sustains both people and wildlife through lean seasons.' },
-  { name: 'Mediterranean Fan Palm',  sci: 'Chamaerops humilis',        fact: 'The only palm native to continental Europe, found wild along the Mediterranean coast from Portugal to Italy.' },
-  { name: 'Macaw Palm',              sci: 'Acrocomia aculeata',        fact: 'Its trunk is armored with dense black spines up to 4 inches long — impenetrable enough that scarlet macaws nest inside the crown without fear.' },
-  { name: 'Old Man Palm',            sci: 'Coccothrinax crinita',      fact: 'The shaggy hair-like fibers covering its trunk are persistent leaf bases — it can take decades to grow just 6 feet tall.' },
-  { name: 'King Palm',               sci: 'Archontophoenix cunninghamiana', fact: 'When a king palm falls in a rainforest, it decomposes so fast it becomes a \'nurse log\' — other trees sprout directly from its remains.' },
-  { name: 'California Fan Palm',     sci: 'Washingtonia filifera',     fact: 'The only palm native to the American West; its desert oasis groves in the Sonoran have been shading travelers for thousands of years.' },
-  { name: 'Sago Palm',               sci: 'Cycas revoluta',            fact: 'Not actually a palm at all — it\'s a cycad, a living fossil essentially unchanged for 200 million years, predating the dinosaurs.' },
-  { name: 'Açaí Palm',               sci: 'Euterpe oleracea',          fact: 'Sustainably harvesting wild açaí is more profitable per acre than clear-cutting the same land for cattle ranching.' },
-  { name: 'Sugar Palm',              sci: 'Arenga pinnata',            fact: 'Every single part is useful: sap for sugar and palm wine, fibers for rope, starchy pith for food, leaves for thatching.' },
-  { name: 'Puerto Rico Hat Palm',    sci: 'Sabal causiarum',           fact: 'The stiff, durable fronds were traditionally woven into the iconic jíbaro hats that became a symbol of Puerto Rican identity.' },
-  { name: 'Montgomery Palm',         sci: 'Veitchia montgomeryana',    fact: 'Named after Col. Robert Montgomery, the Miami banker whose private garden became Fairchild Tropical Botanic Garden.' },
-  { name: 'Queen Palm',              sci: 'Syagrus romanzoffiana',     fact: 'Originally from South America, it has now been planted so widely that it\'s practically the default palm of suburban streets worldwide.' },
-  { name: 'Mexican Fan Palm',        sci: 'Washingtonia robusta',      fact: 'The iconic tall, slender silhouette lining Sunset Boulevard in LA can reach 100 ft — and those trees were planted in the 1930s.' },
+  { name: 'Royal Palm',              sci: 'Roystonea regia',          rarity: 'common',   fact: 'Can reach 100 ft and lines some of the most iconic boulevards in Miami and Havana.' },
+  { name: 'Coconut Palm',            sci: 'Cocos nucifera',           rarity: 'common',   fact: 'Has crossed every ocean on its own — coconuts float for months without losing viability.' },
+  { name: 'Bottle Palm',             sci: 'Hyophorbe lagenicaulis',   rarity: 'common',   fact: 'Native only to tiny Round Island near Mauritius — critically endangered in the wild, thriving in yards everywhere else.' },
+  { name: 'Bismarck Palm',           sci: 'Bismarckia nobilis',       rarity: 'uncommon', fact: 'Named after Otto von Bismarck; its silver-blue fans can span 10 feet across.' },
+  { name: 'Foxtail Palm',            sci: 'Wodyetia bifurcata',       rarity: 'common',   fact: 'Only discovered by Western botanists in 1978 — indigenous Australians had kept its location a closely guarded secret.' },
+  { name: 'Canary Island Date Palm', sci: 'Phoenix canariensis',      rarity: 'uncommon', fact: 'A single mature specimen can cost $50,000 to transplant due to the sheer size of its root ball.' },
+  { name: 'Sabal Palm',              sci: 'Sabal palmetto',           rarity: 'common',   fact: "Florida's state tree; its spongy wood absorbed British cannonballs so effectively during the Revolutionary War that Fort Moultrie held." },
+  { name: 'Chilean Wine Palm',       sci: 'Jubaea chilensis',         rarity: 'rare',     fact: 'Has the world\'s thickest palm trunk — up to 5 feet in diameter — and can live over 1,000 years.' },
+  { name: 'Areca Palm',              sci: 'Dypsis lutescens',         rarity: 'common',   fact: 'One of the most popular houseplants on Earth; NASA studies found it among the best natural air purifiers.' },
+  { name: 'Spindle Palm',            sci: 'Hyophorbe verschaffeltii', rarity: 'common',   fact: 'Nearly extinct on its native Rodrigues Island, yet so common in South Florida landscaping you\'ll see it on almost every block.' },
+  { name: 'Christmas Palm',          sci: 'Adonidia merrillii',       rarity: 'common',   fact: 'Gets its name from clusters of bright red fruit that ripen right on schedule every December.' },
+  { name: 'Windmill Palm',           sci: 'Trachycarpus fortunei',    rarity: 'rare',     fact: 'The hardiest palm in cultivation — survives temperatures as low as 5°F (−15°C) and grows in Scotland.' },
+  { name: 'African Oil Palm',        sci: 'Elaeis guineensis',        rarity: 'rare',     fact: 'Produces more edible oil per acre than any other plant; palm oil appears in roughly half of all packaged foods worldwide.' },
+  { name: 'Talipot Palm',            sci: 'Corypha umbraculifera',    rarity: 'rare',     fact: 'Produces the largest flower cluster of any plant on Earth, with millions of blooms — then dies immediately, having flowered just once in 30–80 years.' },
+  { name: 'Coco de Mer',             sci: 'Lodoicea maldivica',       rarity: 'rare',     fact: 'Bears the largest seed of any plant — a single nut can weigh 55 lbs and takes up to 7 years to germinate.' },
+  { name: 'Silver Palm',             sci: 'Coccothrinax argentata',   rarity: 'uncommon', fact: 'The brilliant silver underside of each frond comes from a waxy coating that reflects heat and deters insects.' },
+  { name: 'Buccaneer Palm',          sci: 'Pseudophoenix sargentii',  rarity: 'rare',     fact: 'One of Florida\'s rarest native palms — only a few hundred remain in the wild across the Florida Keys.' },
+  { name: 'Peach Palm',              sci: 'Bactris gasipaes',         rarity: 'rare',     fact: 'Cultivated in the Amazon for over 3,000 years; its nutritious orange fruit sustains both people and wildlife through lean seasons.' },
+  { name: 'Mediterranean Fan Palm',  sci: 'Chamaerops humilis',       rarity: 'uncommon', fact: 'The only palm native to continental Europe, found wild along the Mediterranean coast from Portugal to Italy.' },
+  { name: 'Macaw Palm',              sci: 'Acrocomia aculeata',       rarity: 'rare',     fact: 'Its trunk is armored with dense black spines up to 4 inches long — impenetrable enough that scarlet macaws nest inside the crown without fear.' },
+  { name: 'Old Man Palm',            sci: 'Coccothrinax crinita',     rarity: 'rare',     fact: 'The shaggy hair-like fibers covering its trunk are persistent leaf bases — it can take decades to grow just 6 feet tall.' },
+  { name: 'King Palm',               sci: 'Archontophoenix cunninghamiana', rarity: 'uncommon', fact: 'When a king palm falls in a rainforest, it decomposes so fast it becomes a \'nurse log\' — other trees sprout directly from its remains.' },
+  { name: 'California Fan Palm',     sci: 'Washingtonia filifera',    rarity: 'uncommon', fact: 'The only palm native to the American West; its desert oasis groves in the Sonoran have been shading travelers for thousands of years.' },
+  { name: 'Sago Palm',               sci: 'Cycas revoluta',           rarity: 'common',   fact: 'Not actually a palm at all — it\'s a cycad, a living fossil essentially unchanged for 200 million years, predating the dinosaurs.' },
+  { name: 'Açaí Palm',               sci: 'Euterpe oleracea',         rarity: 'rare',     fact: 'Sustainably harvesting wild açaí is more profitable per acre than clear-cutting the same land for cattle ranching.' },
+  { name: 'Sugar Palm',              sci: 'Arenga pinnata',           rarity: 'rare',     fact: 'Every single part is useful: sap for sugar and palm wine, fibers for rope, starchy pith for food, leaves for thatching.' },
+  { name: 'Puerto Rico Hat Palm',    sci: 'Sabal causiarum',          rarity: 'uncommon', fact: 'The stiff, durable fronds were traditionally woven into the iconic jíbaro hats that became a symbol of Puerto Rican identity.' },
+  { name: 'Montgomery Palm',         sci: 'Veitchia montgomeryana',   rarity: 'uncommon', fact: 'Named after Col. Robert Montgomery, the Miami banker whose private garden became Fairchild Tropical Botanic Garden.' },
+  { name: 'Queen Palm',              sci: 'Syagrus romanzoffiana',    rarity: 'common',   fact: 'Originally from South America, it has now been planted so widely that it\'s practically the default palm of suburban streets worldwide.' },
+  { name: 'Mexican Fan Palm',        sci: 'Washingtonia robusta',     rarity: 'common',   fact: 'The iconic tall, slender silhouette lining Sunset Boulevard in LA can reach 100 ft — and those trees were planted in the 1930s.' },
 ];
 
 function renderPalmOfTheDay() {

@@ -10,7 +10,7 @@ A progressive web app that identifies palm trees from photos using Claude. Point
 - **Names the look-alike to rule out** — for each ID it tells you the most similar species and exactly how to tell them apart
 - **Remembers every sighting** with a thumbnail, GPS location, and your notes, stored on-device
 - **Maps your sightings** on an interactive map so you can see where you found what
-- **Builds a collection** — counts the species you've identified and celebrates each new one
+- **Builds a collection with a field guide** — tracks how many of ~30 palms you've discovered (a "12 / 30" progress grid), and assigns each find a rarity (common / uncommon / rare) worth points, so spotting an Old Man Palm feels like a score, not a log entry
 - **Answers follow-up questions** about any identified palm in a short chat
 - **Installs like an app** and loads instantly offline (it's a PWA), with no server, account, or backend
 
