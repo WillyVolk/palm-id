@@ -137,7 +137,7 @@ Swap it for `claude-sonnet-4-6` if you want faster, cheaper calls and are willin
 - **Juveniles and heavily pruned specimens** are harder to identify — a young Queen Palm and a young Coconut Palm with no fruit look very similar. Adding a second photo from a different angle helps.
 - **Indoor/potted palms** photographed without scale context are occasionally misidentified because trunk height and proportion are important field marks.
 - **History is local only.** Sightings are stored in `localStorage`. Deleting the PWA from your home screen wipes the history. Export your sightings from the History screen before uninstalling. Your API key can be copied from Settings before you delete.
-- **No transcript truncation issue** (unlike the podcast project) — images are resized to 1024px client-side before the API call, so even a 48MP photo stays within one call.
+- **Large photos are handled** — images are resized to 1024px client-side before the API call, so even a 48MP phone photo fits in a single request.
 
 ## Files
 

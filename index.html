@@ -12,9 +12,14 @@
   <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Leaflet (map for Feature 1) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet (map for Feature 1) — pinned with Subresource Integrity so a
+       compromised CDN can't inject script onto a page that holds the API key -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <!-- Apple touch icon fallback (generated inline via JS below) -->
   <link rel="apple-touch-icon" id="apple-touch-icon" />
@@ -2766,6 +2771,46 @@ $('modal-api-key-input').addEventListener('keydown', e => {
 });
 
 
+// ─── Anthropic API helper (shared; retries once on transient failures) ───
+async function callClaude(payload, apiKey) {
+  const doFetch = () => fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key':          apiKey,
+      'anthropic-version':  '2023-06-01',
+      'content-type':       'application/json',
+      // Required for browser CORS calls to Anthropic API
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let response;
+  try {
+    response = await doFetch();
+  } catch (netErr) {
+    // Network blip (common on mobile) — wait briefly and try once more
+    await new Promise(r => setTimeout(r, 1200));
+    response = await doFetch();
+  }
+
+  // Retry once on rate-limit / overloaded / server errors
+  if (!response.ok && (response.status === 429 || response.status >= 500)) {
+    await new Promise(r => setTimeout(r, 1200));
+    response = await doFetch();
+  }
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    let errMsg = `API error ${response.status}`;
+    try { errMsg = JSON.parse(errBody).error?.message || errMsg; } catch {}
+    throw new Error(errMsg);
+  }
+
+  return response.json();
+}
+
+
 // ─── Anthropic API Call ───────────────────────────────────────
 async function identifyPalm(images, apiKey) {
   // Build content blocks: optional multi-photo preamble, then each image, then question
@@ -2801,29 +2846,7 @@ async function identifyPalm(images, apiKey) {
     messages: [{ role: 'user', content: contentItems }],
   };
 
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'x-api-key':          apiKey,
-      'anthropic-version':  '2023-06-01',
-      'content-type':       'application/json',
-      // Required for browser CORS calls to Anthropic API
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errBody = await response.text();
-    let errMsg = `API error ${response.status}`;
-    try {
-      const errJson = JSON.parse(errBody);
-      errMsg = errJson.error?.message || errMsg;
-    } catch {}
-    throw new Error(errMsg);
-  }
-
-  const data = await response.json();
+  const data = await callClaude(payload, apiKey);
 
   // Extract text content from response
   const rawText = data.content?.[0]?.text || '';
@@ -3093,26 +3116,29 @@ function renderHistory() {
     });
 
     const r = entry.result;
-    const features = (r.identifyingFeatures || []).slice(0, 3).join(' · ') || '';
+    // Escape all model-generated fields — they're untrusted text rendered as HTML
+    const features = (r.identifyingFeatures || []).slice(0, 3).map(escHtml).join(' · ') || '';
+    const nameEsc  = escHtml(r.commonName || 'Unknown Palm');
+    const sciEsc   = escHtml(r.scientificName || '');
 
     item.innerHTML = `
       <div class="history-item-row">
-        <img class="history-thumb" src="${entry.imageData}" alt="${r.commonName || 'Palm'}" />
+        <img class="history-thumb" src="${entry.imageData}" alt="${nameEsc}" />
         <div class="history-info">
-          <div class="history-name">${r.commonName || 'Unknown Palm'}${entry.note ? ' 📝' : ''}</div>
-          <div class="history-sci">${r.scientificName || ''}</div>
+          <div class="history-name">${nameEsc}${entry.note ? ' 📝' : ''}</div>
+          <div class="history-sci">${sciEsc}</div>
           <div class="history-date">${dateStr}</div>
         </div>
         <span class="history-chevron">›</span>
       </div>
       <div class="history-detail">
-        <img class="history-detail-img" src="${entry.imageData}" alt="${r.commonName}" />
+        <img class="history-detail-img" src="${entry.imageData}" alt="${nameEsc}" />
         <div class="detail-section">
           <strong>Description</strong>
-          ${r.description || 'No description available.'}
+          ${escHtml(r.description || 'No description available.')}
         </div>
         ${features ? `<div class="detail-section"><strong>Key Features</strong>${features}</div>` : ''}
-        ${r.funFacts?.length ? `<div class="detail-section"><strong>Fun Facts</strong>${r.funFacts.map(f => `✨ ${f}`).join('<br>')}</div>` : ''}
+        ${r.funFacts?.length ? `<div class="detail-section"><strong>Fun Facts</strong>${r.funFacts.map(f => `✨ ${escHtml(f)}`).join('<br>')}</div>` : ''}
         ${entry.note ? `<div class="note-in-history">📝 ${escHtml(entry.note)}</div>` : ''}
       </div>`;
 
@@ -3655,25 +3681,7 @@ async function sendAskMoreMessage() {
   };
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type':      'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      let errMsg = `API error ${response.status}`;
-      try { errMsg = JSON.parse(errBody).error?.message || errMsg; } catch {}
-      throw new Error(errMsg);
-    }
-
-    const data    = await response.json();
+    const data    = await callClaude(payload, apiKey);
     const aiReply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
 
     hideTypingIndicator();
