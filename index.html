@@ -1,0 +1,4102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#2d6a4f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Palm ID" />
+  <meta name="description" content="Identify palm trees in South Florida" />
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Leaflet (map for Feature 1) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Apple touch icon fallback (generated inline via JS below) -->
+  <link rel="apple-touch-icon" id="apple-touch-icon" />
+
+  <title>Palm ID</title>
+
+  <style>
+    /* ─── CSS Variables ──────────────────────────────── */
+    :root {
+      --primary:    #2d6a4f;
+      --accent:     #52b788;
+      --light:      #d8f3dc;
+      --bg:         #f8fdf9;
+      --text:       #1b1b1b;
+      --card-bg:    #ffffff;
+      --shadow:     0 2px 12px rgba(45,106,79,.12);
+      --shadow-lg:  0 6px 28px rgba(45,106,79,.18);
+      --radius:     16px;
+      --radius-sm:  10px;
+      --safe-top:   env(safe-area-inset-top, 0px);
+      --safe-bot:   env(safe-area-inset-bottom, 0px);
+    }
+
+    /* ─── Reset & Base ───────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-size: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    /* ─── App Shell ──────────────────────────────────── */
+    #app {
+      width: 100%;
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Screens ────────────────────────────────────── */
+    .screen {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-top: var(--safe-top);
+      padding-bottom: calc(60px + var(--safe-bot));
+    }
+    .screen.active { display: flex; }
+
+    /* ─── Top Bar ────────────────────────────────────── */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      background: var(--primary);
+      color: white;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .top-bar h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .back-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 4px 10px 4px 0;
+      line-height: 1;
+      opacity: .9;
+    }
+    .back-btn:hover { opacity: 1; }
+
+    /* ─── HOME SCREEN ────────────────────────────────── */
+    #screen-home {
+      background: linear-gradient(160deg, #1a4730 0%, var(--primary) 45%, #3a8a68 100%);
+      align-items: center;
+      justify-content: flex-start;
+      padding: calc(var(--safe-top) + 24px) 24px calc(60px + var(--safe-bot) + 16px);
+      gap: 0;
+    }
+    .home-header-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: white;
+      margin-bottom: 16px;
+    }
+    .home-logo-small { font-size: 1.4rem; line-height: 1; }
+    .home-title-small { font-size: 18px; font-weight: 700; letter-spacing: .01em; }
+    .home-hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      width: 100%;
+      padding-bottom: 60px;
+    }
+    .camera-btn {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 35%, #52b788, #2d6a4f 70%, #1b4332);
+      border: 4px solid rgba(255,255,255,.38);
+      box-shadow: 0 8px 32px rgba(0,0,0,.38), 0 0 0 12px rgba(82,183,136,.22);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease;
+      -webkit-user-select: none;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Subtle shine arc */
+    .camera-btn::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: -20%;
+      width: 65%;
+      height: 65%;
+      background: rgba(255,255,255,.12);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .camera-btn-palm {
+      font-size: 3.2rem;
+      line-height: 1;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+    }
+    .camera-btn-label {
+      font-size: .65rem;
+      font-weight: 700;
+      color: rgba(255,255,255,.8);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .camera-btn:active {
+      transform: scale(.94);
+      box-shadow: 0 4px 16px rgba(0,0,0,.35), 0 0 0 8px rgba(82,183,136,.2);
+    }
+    .home-hero-hint {
+      color: rgba(255,255,255,.7);
+      font-size: .88rem;
+      font-weight: 400;
+      text-align: center;
+    }
+
+    /* A2HS banner */
+    #a2hs-banner {
+      background: rgba(255,255,255,.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      color: white;
+      font-size: .82rem;
+      text-align: center;
+      line-height: 1.4;
+    }
+    /* #a2hs-banner uses .hidden utility class */
+
+    /* ─── CAMERA / PREVIEW SCREEN ────────────────────── */
+    #screen-camera {
+      background: var(--bg);
+    }
+    .camera-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 20px;
+      gap: 20px;
+    }
+
+    /* Hidden file input */
+    #file-input { display: none; }
+
+    /* Drop zone / upload area */
+    .upload-zone {
+      width: 100%;
+      border: 2.5px dashed var(--accent);
+      border-radius: var(--radius);
+      background: var(--light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 20px;
+      gap: 12px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .upload-zone:active { background: #c5eacc; }
+    .upload-zone .upload-icon { font-size: 3rem; }
+    .upload-zone p {
+      font-size: .95rem;
+      color: var(--primary);
+      font-weight: 600;
+      text-align: center;
+    }
+    .upload-zone small {
+      font-size: .8rem;
+      color: #5a8070;
+    }
+
+    /* Image preview */
+    #preview-wrap {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    #preview-img {
+      width: 100%;
+      max-height: 320px;
+      object-fit: cover;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+    }
+    .preview-actions {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    /* ─── Buttons ────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 24px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 700;
+      min-height: 48px;
+      cursor: pointer;
+      transition: transform .12s, opacity .12s, box-shadow .12s;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .btn:active { transform: scale(.96); opacity: .9; }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 16px rgba(45,106,79,.35);
+      flex: 1;
+    }
+    .btn-primary:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: var(--light);
+      color: var(--primary);
+      flex: 1;
+    }
+    .btn-danger {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    .btn-full { width: 100%; }
+    .btn-ghost {
+      background: none;
+      color: var(--primary);
+      padding: 10px 16px;
+      font-weight: 600;
+    }
+
+    /* ─── LOADING STATE (photo pulse) ───────────────── */
+    /* #loading-overlay kept but unused — pulse is inline on photo */
+    #loading-overlay { display: none; }
+
+    /* Preview wrap needs relative positioning for overlay */
+    #preview-wrap {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+    }
+    .photo-loading-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      bottom: calc(48px + 16px); /* clear action buttons */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.35);
+      z-index: 5;
+      pointer-events: none;
+    }
+    .photo-loading-overlay.hidden { display: none !important; }
+    #preview-img { transition: opacity .3s; display: block; }
+    #preview-img.dimmed { opacity: .65; }
+    .pulse-circle {
+      width: 58px; height: 58px;
+      border-radius: 50%;
+      background: rgba(82,183,136,.88);
+      animation: pulseBreath 1.6s ease-in-out infinite;
+    }
+    @keyframes pulseBreath {
+      0%, 100% { transform: scale(.82); box-shadow: 0 0 0 0 rgba(82,183,136,.5); }
+      50%       { transform: scale(1.12); box-shadow: 0 0 0 22px rgba(82,183,136,0); }
+    }
+    .loading-cycling-text {
+      color: white;
+      font-size: .88rem;
+      font-weight: 600;
+      text-align: center;
+      text-shadow: 0 1px 4px rgba(0,0,0,.5);
+      padding: 0 16px;
+    }
+
+    /* ─── RESULTS SCREEN ─────────────────────────────── */
+    #screen-results {
+      background: var(--bg);
+    }
+    .results-content {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    /* ─── Results screen new layout ─────────────────── */
+    #palm-result {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .result-hero-photo {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+      display: block;
+      flex-shrink: 0;
+    }
+    .result-identity-section {
+      padding: 16px 20px 12px;
+      background: var(--card-bg);
+    }
+    .result-common-name {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #1b1b1b;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .result-sci-name {
+      font-style: italic;
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .conf-pill {
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .result-description-text {
+      font-size: .93rem;
+      line-height: 1.65;
+      color: #333;
+    }
+    .result-cards-pad {
+      padding: 10px 16px 0;
+    }
+    /* ─── Learn More expandable ──────────────────────── */
+    .learn-more-section {
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      overflow: hidden;
+    }
+    .learn-more-toggle {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--primary);
+      font-family: inherit;
+      text-align: left;
+      min-height: 48px;
+    }
+    .lm-chevron {
+      font-size: .78rem;
+      transition: transform .25s ease;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .learn-more-section.expanded .lm-chevron { transform: rotate(180deg); }
+    .learn-more-content {
+      display: none;
+      padding: 4px 20px 16px;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .learn-more-section.expanded .learn-more-content { display: flex; }
+    .lm-status-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .learn-more-block-title {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    /* ─── Care tips ──────────────────────────────────── */
+    .care-tips-section {
+      padding: 14px 20px 18px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .care-tips-heading {
+      font-size: .8rem;
+      color: #aaa;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .care-tips-text {
+      font-size: .88rem;
+      color: #666;
+      line-height: 1.6;
+    }
+    /* ─── Result action bar ──────────────────────────── */
+    .result-actions-bar {
+      display: flex;
+      gap: 12px;
+      padding: 8px 20px 16px;
+      justify-content: center;
+    }
+    .result-actions-bar .btn {
+      min-height: 40px;
+      padding: 8px 20px;
+      font-size: .88rem;
+    }
+
+    /* Badges */
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 50px;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .badge-high   { background: #d1fae5; color: #065f46; }
+    .badge-medium { background: #fef3c7; color: #92400e; }
+    .badge-low    { background: #fee2e2; color: #991b1b; }
+    .badge-native     { background: #d8f3dc; color: var(--primary); }
+    .badge-introduced { background: #fce7f3; color: #9d174d; }
+    .badge-cultivated { background: #ede9fe; color: #5b21b6; }
+
+    /* Info cards */
+    .info-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      padding: 20px;
+    }
+    .info-card-title {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .info-card p {
+      font-size: .95rem;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    /* Feature list */
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: .93rem;
+      line-height: 1.4;
+      color: #333;
+    }
+    .feature-list li::before {
+      content: "🌿";
+      font-size: .85rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Fun facts */
+    .fun-facts {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .fun-fact {
+      background: var(--light);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      font-size: .9rem;
+      line-height: 1.5;
+      color: var(--primary);
+      display: flex;
+      gap: 8px;
+    }
+    .fun-fact::before { content: "✨"; flex-shrink: 0; }
+
+    /* Results actions */
+    .results-actions {
+      display: flex;
+      gap: 12px;
+      padding: 0 20px 20px;
+    }
+
+    /* Not-a-palm error */
+    .not-palm-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 36px 24px;
+      text-align: center;
+      margin: 20px;
+    }
+    .not-palm-card .emoji { font-size: 3.5rem; margin-bottom: 16px; }
+    .not-palm-card h2 { font-size: 1.3rem; color: var(--primary); margin-bottom: 10px; }
+    .not-palm-card p { color: #555; line-height: 1.6; margin-bottom: 20px; }
+
+    /* Error card */
+    .error-card {
+      background: #fff5f5;
+      border: 1.5px solid #fecaca;
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 20px;
+      text-align: center;
+    }
+    .error-card .emoji { font-size: 2rem; margin-bottom: 12px; }
+    .error-card h3 { color: #dc2626; margin-bottom: 8px; }
+    .error-card p { font-size: .9rem; color: #555; line-height: 1.5; margin-bottom: 16px; }
+
+    /* ─── HISTORY SCREEN ─────────────────────────────── */
+    #screen-history {
+      background: var(--bg);
+    }
+    .history-content {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 60px 24px;
+      text-align: center;
+    }
+    .history-empty .emoji { font-size: 3.5rem; }
+    .history-empty p { color: #7a9e8e; font-size: .95rem; line-height: 1.6; }
+
+    /* History item */
+    .history-item {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      cursor: pointer;
+      transition: box-shadow .15s;
+    }
+    .history-item:active { box-shadow: var(--shadow-lg); }
+
+    .history-item-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px;
+    }
+    .history-thumb {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+    }
+    .history-info { flex: 1; min-width: 0; }
+    .history-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-sci {
+      font-size: .8rem;
+      font-style: italic;
+      color: #6b8f80;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-date {
+      font-size: .75rem;
+      color: #9bb4aa;
+      margin-top: 3px;
+    }
+    .history-chevron {
+      color: #c5ddd5;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      transition: transform .2s;
+    }
+    .history-item.expanded .history-chevron { transform: rotate(90deg); }
+
+    /* Expanded detail */
+    .history-detail {
+      display: none;
+      padding: 0 14px 14px;
+      border-top: 1px solid var(--light);
+      flex-direction: column;
+      gap: 10px;
+    }
+    .history-item.expanded .history-detail { display: flex; }
+
+    .history-detail-img {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+    }
+    .detail-section { font-size: .88rem; line-height: 1.55; color: #444; }
+    .detail-section strong { color: var(--primary); display: block; margin-bottom: 4px; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+
+    .history-clear-wrap {
+      padding: 12px 16px;
+      border-top: 1px solid var(--light);
+    }
+
+    /* ─── SETTINGS SCREEN ────────────────────────────── */
+    #screen-settings {
+      background: var(--bg);
+    }
+    .settings-content {
+      flex: 1;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .settings-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .settings-card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .settings-card p, .settings-card small {
+      font-size: .88rem;
+      color: #666;
+      line-height: 1.55;
+    }
+
+    /* API key field */
+    .api-key-wrap {
+      position: relative;
+      display: flex;
+    }
+    #api-key-input {
+      flex: 1;
+      padding: 13px 44px 13px 14px;
+      border: 1.5px solid var(--light);
+      border-radius: var(--radius-sm);
+      font-size: .95rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s;
+      font-family: monospace;
+    }
+    #api-key-input:focus { border-color: var(--accent); }
+    .api-key-toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 4px;
+      color: #8aaa9a;
+    }
+
+    .save-indicator {
+      font-size: .85rem;
+      color: var(--accent);
+      font-weight: 600;
+      text-align: center;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .save-indicator.show { opacity: 1; }
+
+    /* Info box */
+    .info-box {
+      background: var(--light);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: .85rem;
+      color: var(--primary);
+      line-height: 1.55;
+    }
+    .info-box a { color: var(--primary); font-weight: 700; }
+
+    /* Stats */
+    .stats-row {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      flex: 1;
+      background: var(--light);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-num { font-size: 1.6rem; font-weight: 800; color: var(--primary); }
+    .stat-label { font-size: .75rem; color: #6a9080; margin-top: 2px; }
+
+    /* ─── Misc utilities ─────────────────────────────── */
+    .hidden { display: none !important; }
+    .text-center { text-align: center; }
+
+    /* Smooth fade-in for screens */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .screen.active { animation: fadeIn .22s ease; }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--light); border-radius: 4px; }
+
+    /* ─── Could-also-be amber info card ─────────────── */
+    .could-also-be-card {
+      background: #fffbeb;
+      border: 1.5px solid #fde68a;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .could-also-be-card .cab-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .could-also-be-card .cab-body {}
+    .could-also-be-card .cab-label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: #92400e;
+      margin-bottom: 4px;
+    }
+    .could-also-be-card .cab-text {
+      font-size: .88rem;
+      color: #78350f;
+      line-height: 1.5;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       GAMIFICATION STYLES
+    ═══════════════════════════════════════════════════ */
+
+    /* ─── HOME: Species Counter Badge ──────────────────── */
+    .home-species-badge {
+      background: rgba(255,255,255,.18);
+      backdrop-filter: blur(6px);
+      border: 1.5px solid rgba(255,255,255,.28);
+      border-radius: 50px;
+      padding: 7px 20px;
+      color: white;
+      font-size: .88rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, transform .12s;
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .home-species-badge:active { background: rgba(255,255,255,.28); transform: scale(.96); }
+    .home-species-badge .badge-count {
+      font-size: 1.1rem;
+      font-weight: 900;
+    }
+
+    /* ─── COLLECTION SCREEN ─────────────────────────────── */
+    #screen-collection { background: var(--bg); }
+
+    .collection-hero {
+      background: linear-gradient(135deg, #1a4730, #2d6a4f 60%, #3a8a68);
+      padding: 24px 20px 20px;
+      text-align: center;
+      color: white;
+    }
+    .collection-count-num {
+      font-size: 3.4rem;
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 2px 10px rgba(0,0,0,.3);
+    }
+    .collection-count-label {
+      font-size: .9rem;
+      opacity: .8;
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    /* Milestone badges strip */
+    .milestones-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 16px 16px 8px;
+      scrollbar-width: none;
+    }
+    .milestones-strip::-webkit-scrollbar { display: none; }
+
+    .milestone-chip {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      background: var(--card-bg);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      min-width: 68px;
+      border: 1.5px solid transparent;
+      transition: transform .15s;
+    }
+    .milestone-chip.earned {
+      background: linear-gradient(145deg, #fffbeb, #fef3c7);
+      border-color: #fbbf24;
+      box-shadow: var(--shadow), 0 0 10px rgba(251,191,36,.25);
+    }
+    .milestone-chip.locked { opacity: .38; }
+    .milestone-chip .mc-emoji { font-size: 1.45rem; line-height: 1; }
+    .milestone-chip .mc-label {
+      font-size: .62rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-align: center;
+      line-height: 1.25;
+    }
+    .milestone-chip.locked .mc-label { color: #aaa; }
+    .milestone-chip.earned .mc-label { color: #92400e; }
+
+    /* Section label */
+    .collection-section-label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      padding: 12px 20px 6px;
+    }
+
+    /* Sticker grid */
+    .sticker-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 4px 16px 32px;
+    }
+
+    /* Sticker card */
+    .sticker-card {
+      border-radius: var(--radius);
+      padding: 20px 12px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      animation: stickerPop .4s cubic-bezier(.175,.885,.32,1.275) both;
+    }
+    @keyframes stickerPop {
+      from { opacity: 0; transform: scale(.65) rotate(-6deg); }
+      to   { opacity: 1; transform: scale(1)   rotate(0deg); }
+    }
+    /* Shine overlay */
+    .sticker-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -35%;
+      width: 70%;
+      height: 90%;
+      background: rgba(255,255,255,.13);
+      transform: rotate(28deg);
+      pointer-events: none;
+    }
+    .sticker-card.milestone-gold {
+      border: 2.5px solid #f59e0b;
+      box-shadow: var(--shadow-lg), 0 0 18px rgba(245,158,11,.35);
+    }
+    .sticker-emoji {
+      font-size: 2.8rem;
+      line-height: 1;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,.3));
+    }
+    .sticker-name {
+      font-size: .82rem;
+      font-weight: 800;
+      color: white;
+      text-align: center;
+      text-shadow: 0 1px 4px rgba(0,0,0,.4);
+      line-height: 1.25;
+    }
+    .sticker-sci {
+      font-size: .65rem;
+      font-style: italic;
+      color: rgba(255,255,255,.78);
+      text-align: center;
+      line-height: 1.3;
+    }
+    .sticker-date {
+      font-size: .6rem;
+      color: rgba(255,255,255,.62);
+      text-align: center;
+    }
+    .sticker-count-pill {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      background: rgba(0,0,0,.28);
+      border-radius: 50px;
+      padding: 2px 7px;
+      font-size: .63rem;
+      font-weight: 700;
+      color: rgba(255,255,255,.9);
+    }
+
+    /* Gradient palettes for sticker cards (6 combos, cycling) */
+    .sc-0 { background: linear-gradient(145deg, #1b4332, #2d6a4f, #52b788); }
+    .sc-1 { background: linear-gradient(145deg, #0d4f5c, #0d7377, #14a085); }
+    .sc-2 { background: linear-gradient(145deg, #78350f, #b45309, #f59e0b); }
+    .sc-3 { background: linear-gradient(145deg, #881337, #be123c, #fb7185); }
+    .sc-4 { background: linear-gradient(145deg, #3b0764, #6d28d9, #a78bfa); }
+    .sc-5 { background: linear-gradient(145deg, #1e3a5f, #1d4ed8, #60a5fa); }
+
+    /* Empty collection */
+    .collection-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 60px 24px;
+      text-align: center;
+    }
+    .collection-empty .emoji { font-size: 3.5rem; }
+    .collection-empty p { color: #7a9e8e; font-size: .95rem; line-height: 1.6; }
+
+    /* ─── CELEBRATION OVERLAY ────────────────────────────── */
+    #celebration-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(8, 28, 18, .9);
+      backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      overflow: hidden;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #celebration-overlay.active { display: flex; }
+
+    /* Confetti pieces — generated by JS */
+    .confetti-piece {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      opacity: 0;
+      animation: confettiFall linear forwards;
+      pointer-events: none;
+    }
+    @keyframes confettiFall {
+      0%   { opacity: 1;   transform: translateY(0)     rotate(0deg);   }
+      15%  { opacity: 1; }
+      100% { opacity: 0;   transform: translateY(105vh) rotate(800deg); }
+    }
+
+    /* Sticker reveal card */
+    .celebration-sticker {
+      width: 168px;
+      height: 210px;
+      border-radius: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 20px 14px 16px;
+      box-shadow: 0 16px 56px rgba(0,0,0,.55), 0 0 0 3px rgba(255,255,255,.18);
+      animation: stickerReveal .65s cubic-bezier(.175,.885,.32,1.275) .15s both;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .celebration-sticker::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      left: -30%;
+      width: 65%;
+      height: 85%;
+      background: rgba(255,255,255,.14);
+      transform: rotate(30deg);
+    }
+    @keyframes stickerReveal {
+      from { opacity: 0; transform: scale(.25) rotate(-18deg); }
+      50%  { transform: scale(1.08) rotate(2deg); }
+      to   { opacity: 1; transform: scale(1)    rotate(0deg);  }
+    }
+    .celebration-sticker .sticker-emoji { font-size: 4.2rem; }
+    .celebration-sticker .sticker-name  { font-size: 1rem; }
+
+    .celebration-new-label {
+      background: #f59e0b;
+      color: white;
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 50px;
+      animation: fadeUp .45s ease .55s both;
+    }
+    .celebration-title {
+      color: white;
+      font-size: 1.55rem;
+      font-weight: 900;
+      text-align: center;
+      animation: fadeUp .45s ease .65s both;
+      letter-spacing: -.01em;
+      padding: 0 20px;
+    }
+    .celebration-sub {
+      color: rgba(255,255,255,.7);
+      font-size: .95rem;
+      text-align: center;
+      animation: fadeUp .45s ease .78s both;
+    }
+    .celebration-milestone-banner {
+      background: linear-gradient(90deg, #fef3c7, #fbbf24, #fef3c7);
+      color: #78350f;
+      font-size: .88rem;
+      font-weight: 800;
+      padding: 8px 22px;
+      border-radius: 50px;
+      animation: fadeUp .45s ease .9s both;
+      margin-top: 4px;
+    }
+    .celebration-dismiss-hint {
+      color: rgba(255,255,255,.35);
+      font-size: .78rem;
+      margin-top: 20px;
+      animation: fadeUp .45s ease 1.4s both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURE 1: History Map / List Toggle
+    ═══════════════════════════════════════════════════ */
+
+    .history-toggle-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 12px 16px 0;
+      flex-shrink: 0;
+    }
+    .history-view-toggle {
+      display: flex;
+      background: var(--light);
+      border-radius: 50px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .history-view-btn {
+      border: none;
+      background: none;
+      border-radius: 50px;
+      padding: 7px 20px;
+      font-size: .85rem;
+      font-weight: 700;
+      color: #5a8070;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+    .history-view-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    #history-map-container {
+      flex: 1;
+      margin: 12px 16px 0;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      min-height: 350px;
+    }
+    #history-map { width: 100%; height: 100%; min-height: 350px; }
+
+    /* Override Leaflet popup styling */
+    .leaflet-popup-content-wrapper {
+      border-radius: var(--radius-sm) !important;
+      box-shadow: var(--shadow-lg) !important;
+    }
+    .leaflet-popup-content { margin: 10px 12px !important; }
+    .map-popup { display: flex; align-items: center; gap: 10px; }
+    .map-popup img {
+      width: 54px; height: 54px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .map-popup .mp-name { font-weight: 700; color: var(--primary); font-size: .88rem; }
+    .map-popup .mp-date { color: #888; font-size: .75rem; margin-top: 3px; }
+
+    /* No-coords notice in map view */
+    .map-no-coords {
+      padding: 24px;
+      text-align: center;
+      font-size: .88rem;
+      color: #7a9e8e;
+      line-height: 1.6;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      margin: 12px 16px 0;
+      box-shadow: var(--shadow);
+    }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURE 2: Ask More Bottom Sheet
+    ═══════════════════════════════════════════════════ */
+
+    .ask-more-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 150;
+      backdrop-filter: blur(3px);
+    }
+    .ask-more-backdrop.hidden { display: none !important; }
+
+    .ask-more-panel {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) translateY(100%);
+      width: 100%;
+      max-width: 430px;
+      height: 62%;
+      background: var(--card-bg);
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -8px 40px rgba(0,0,0,.22);
+      z-index: 151;
+      display: flex;
+      flex-direction: column;
+      transition: transform .32s cubic-bezier(.32,1,.32,1);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .ask-more-panel.open {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .ask-more-header {
+      display: flex;
+      align-items: center;
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--light);
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .ask-more-header h3 {
+      flex: 1;
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ask-more-close {
+      background: var(--light);
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .ask-more-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ask-more-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: .88rem;
+      color: #7a9e8e;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .chat-bubble {
+      max-width: 83%;
+      padding: 9px 13px;
+      border-radius: 18px;
+      font-size: .9rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .chat-bubble.user {
+      background: var(--primary);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 5px;
+    }
+    .chat-bubble.assistant {
+      background: #f0f4f2;
+      color: var(--text);
+      align-self: flex-start;
+      border-bottom-left-radius: 5px;
+    }
+
+    .typing-indicator {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      padding: 11px 14px;
+      background: #f0f4f2;
+      border-radius: 18px;
+      border-bottom-left-radius: 5px;
+      align-self: flex-start;
+    }
+    .typing-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #9ab8ac;
+      animation: typingBounce .9s infinite ease-in-out;
+    }
+    .typing-dot:nth-child(2) { animation-delay: .18s; }
+    .typing-dot:nth-child(3) { animation-delay: .36s; }
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%           { transform: translateY(-6px); }
+    }
+
+    .ask-more-input-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--light);
+      flex-shrink: 0;
+    }
+    #ask-more-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid var(--light);
+      border-radius: 50px;
+      font-size: .9rem;
+      font-family: inherit;
+      outline: none;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color .15s;
+    }
+    #ask-more-input:focus { border-color: var(--accent); }
+    #ask-more-send {
+      padding: 10px 18px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: .88rem;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: opacity .15s;
+    }
+    #ask-more-send:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* Ask More trigger button row below results-actions */
+    .results-ask-more-wrap {
+      padding: 0 20px 20px;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURE 3: Feedback Buttons
+    ═══════════════════════════════════════════════════ */
+
+    .feedback-row {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 13px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .feedback-label {
+      font-size: .8rem;
+      font-weight: 700;
+      color: #5a8070;
+      white-space: nowrap;
+    }
+    .feedback-btns {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .feedback-btn {
+      padding: 5px 13px;
+      border-radius: 50px;
+      border: 1.5px solid #e0ede6;
+      background: white;
+      font-size: .82rem;
+      font-weight: 600;
+      color: #5a8070;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .feedback-btn:active { transform: scale(.94); }
+    .feedback-btn.selected-correct { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .feedback-btn.selected-unsure  { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .feedback-btn.selected-wrong   { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+    /* Colored dot in history list rows */
+    .feedback-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .feedback-dot.correct { background: #22c55e; }
+    .feedback-dot.unsure  { background: #f59e0b; }
+    .feedback-dot.wrong   { background: #ef4444; }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURE 4: Multiple Photos
+    ═══════════════════════════════════════════════════ */
+
+    .photo-strip {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      justify-content: center;
+    }
+    .photo-strip::-webkit-scrollbar { display: none; }
+    .photo-strip-item {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .photo-strip-thumb {
+      width: 70px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2.5px solid rgba(255,255,255,.65);
+      display: block;
+    }
+    .photo-strip-remove {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      width: 20px;
+      height: 20px;
+      background: #ef4444;
+      color: white;
+      border: 2px solid white;
+      border-radius: 50%;
+      font-size: .62rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      padding: 0;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--primary);
+      color: var(--primary);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+    .btn-outline:active { background: rgba(45,106,79,.1); }
+    .btn-outline:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURE 5: Notes on Sightings
+    ═══════════════════════════════════════════════════ */
+
+    .note-trigger-link {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 0;
+    }
+    .note-trigger-link:active { opacity: .65; }
+    .note-expand {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .note-expand.hidden { display: none !important; }
+    #note-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--light);
+      border-radius: var(--radius-sm);
+      font-size: .88rem;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      resize: vertical;
+      outline: none;
+      transition: border-color .15s;
+      box-sizing: border-box;
+      line-height: 1.5;
+    }
+    #note-textarea:focus { border-color: var(--accent); }
+    .note-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-sm {
+      padding: 7px 16px;
+      font-size: .82rem;
+    }
+    .note-saved-msg {
+      font-size: .8rem;
+      color: #22c55e;
+      font-weight: 700;
+    }
+    .note-saved-msg.hidden { display: none !important; }
+    .note-in-history {
+      font-size: .78rem;
+      color: #5a8070;
+      font-style: italic;
+      margin-top: 6px;
+      line-height: 1.5;
+      padding: 6px 10px;
+      background: #f0f4f2;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+
+    /* ═══════════════════════════════════════════════════
+       FEATURE 6: Share Button
+    ═══════════════════════════════════════════════════ */
+
+    .share-btn-wrap {
+      position: relative;
+    }
+    .share-dropdown {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,.06);
+      overflow: hidden;
+      z-index: 20;
+      min-width: 195px;
+      white-space: nowrap;
+    }
+    .share-dropdown.hidden { display: none !important; }
+    .share-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      transition: background .12s;
+    }
+    .share-dropdown-item:hover,
+    .share-dropdown-item:active { background: var(--light); }
+
+    /* ═══════════════════════════════════════════════════
+       BOTTOM NAVIGATION BAR
+    ═══════════════════════════════════════════════════ */
+    #bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      background: white;
+      border-top: 1px solid #e8e8e8;
+      display: flex;
+      align-items: stretch;
+      z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      height: calc(60px + env(safe-area-inset-bottom, 0px));
+    }
+    .nav-tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #999;
+      padding: 6px 2px;
+      transition: color .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-tab.active { color: var(--primary); }
+    .nav-tab-icon { font-size: 1.25rem; line-height: 1; }
+    .nav-tab-label { font-size: .6rem; font-weight: 600; letter-spacing: .02em; }
+
+    /* ═══════════════════════════════════════════════════
+       API KEY MODAL (inline bottom sheet)
+    ═══════════════════════════════════════════════════ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 160;
+      backdrop-filter: blur(3px);
+    }
+    .modal-backdrop.hidden { display: none !important; }
+    .apikey-modal {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%) translateY(100%);
+      width: 100%;
+      max-width: 430px;
+      background: var(--card-bg);
+      border-radius: 24px 24px 0 0;
+      box-shadow: 0 -8px 40px rgba(0,0,0,.22);
+      z-index: 161;
+      padding: 12px 24px calc(env(safe-area-inset-bottom, 0px) + 28px);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: transform .32s cubic-bezier(.32,1,.32,1);
+    }
+    .apikey-modal.open { transform: translateX(-50%) translateY(0); }
+    .apikey-modal-handle {
+      width: 36px; height: 4px;
+      background: #ddd;
+      border-radius: 2px;
+      align-self: center;
+      margin-bottom: 4px;
+    }
+    .apikey-modal-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .apikey-modal-body {
+      font-size: .9rem;
+      color: #555;
+      line-height: 1.55;
+      margin-top: -4px;
+    }
+    .modal-api-key-input {
+      flex: 1;
+      padding: 13px 44px 13px 14px;
+      border: 1.5px solid var(--light);
+      border-radius: var(--radius-sm);
+      font-size: .95rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s;
+      font-family: monospace;
+      min-height: 48px;
+    }
+    .modal-api-key-input:focus { border-color: var(--accent); }
+    .apikey-modal-link {
+      font-size: .82rem;
+      color: var(--accent);
+      text-align: center;
+      text-decoration: none;
+      padding: 4px 0;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       MILESTONE TOAST
+    ═══════════════════════════════════════════════════ */
+    #milestone-toast {
+      position: fixed;
+      top: calc(var(--safe-top) + 16px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-160%);
+      background: #1b4332;
+      color: white;
+      font-size: .88rem;
+      font-weight: 700;
+      padding: 10px 22px;
+      border-radius: 50px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.25);
+      z-index: 300;
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #milestone-toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ═══════════════════════════════════════════════════
+       PALM OF THE DAY — Home screen card
+    ═══════════════════════════════════════════════════ */
+    .potd-card {
+      width: 100%;
+      background: rgba(255,255,255,.11);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: var(--radius);
+      padding: 14px 16px 15px;
+      color: white;
+      margin-top: auto;
+      margin-bottom: 8px;
+      cursor: default;
+    }
+    .potd-eyebrow {
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      opacity: .7;
+      margin-bottom: 6px;
+    }
+    .potd-body {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .potd-emoji {
+      font-size: 2rem;
+      line-height: 1;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+    }
+    .potd-text { flex: 1; min-width: 0; }
+    .potd-name {
+      font-size: .95rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -.01em;
+    }
+    .potd-sci {
+      font-size: .75rem;
+      font-style: italic;
+      opacity: .75;
+      margin-top: 1px;
+    }
+    .potd-fact {
+      font-size: .78rem;
+      opacity: .82;
+      line-height: 1.5;
+      margin-top: 7px;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       HISTORY SEARCH
+    ═══════════════════════════════════════════════════ */
+    .history-search-wrap {
+      padding: 10px 16px 0;
+      flex-shrink: 0;
+    }
+    #history-search-input {
+      width: 100%;
+      padding: 10px 14px 10px 36px;
+      border: 1.5px solid var(--light);
+      border-radius: 50px;
+      font-size: .9rem;
+      font-family: inherit;
+      background: var(--card-bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2352b788' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 12px center;
+    }
+    #history-search-input:focus { border-color: var(--accent); }
+    #history-search-input::placeholder { color: #9ab8ac; }
+    .history-search-empty {
+      text-align: center;
+      padding: 40px 24px;
+      color: #7a9e8e;
+      font-size: .9rem;
+      line-height: 1.6;
+    }
+
+    /* ═══════════════════════════════════════════════════
+       DARK MODE
+    ═══════════════════════════════════════════════════ */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:        #111d16;
+        --card-bg:   #1c2e23;
+        --text:      #e4f0e8;
+        --light:     #2a4035;
+        --shadow:    0 2px 12px rgba(0,0,0,.4);
+        --shadow-lg: 0 6px 28px rgba(0,0,0,.55);
+      }
+
+      /* Bottom nav */
+      #bottom-nav {
+        background: var(--card-bg);
+        border-top-color: var(--light);
+      }
+      .nav-tab { color: #5a8a70; }
+      .nav-tab.active { color: var(--accent); }
+
+      /* Feedback buttons */
+      .feedback-btn {
+        background: var(--card-bg);
+        border-color: var(--light);
+        color: #9ab8ac;
+      }
+
+      /* Chat bubbles */
+      .chat-bubble.assistant {
+        background: #243b2c;
+        color: var(--text);
+      }
+
+      /* Share dropdown */
+      .share-dropdown {
+        background: var(--card-bg);
+        box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.06);
+      }
+      .share-dropdown-item { color: var(--text); }
+
+      /* Note inline */
+      .note-in-history { background: #1a2e22; }
+
+      /* Error / warning tinted cards */
+      .not-palm-card  { background: #2a1e1e; }
+      .error-card     { background: #2a1e1e; }
+      .could-also-be-card {
+        background: #2e2514;
+        border-color: #5a3d0a;
+      }
+      .could-also-be-card .cab-label { color: #d4a028; }
+      .could-also-be-card .cab-text  { color: #c89030; }
+
+      /* History search SVG icon — light version */
+      #history-search-input {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%235a8a70' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.156a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E");
+      }
+      #history-search-input::placeholder { color: #4a6a58; }
+
+      /* Modal / panel backgrounds already use var(--card-bg) — auto handled */
+
+      /* Results hero section */
+      .result-identity-section { background: var(--card-bg); }
+
+      /* Home screen stays dark green gradient — unchanged */
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Loading Overlay (kept for reference, not shown) ── -->
+<div id="loading-overlay" role="status" aria-live="polite"></div>
+
+<!-- ─── Milestone Toast ───────────────────────────────── -->
+<div id="milestone-toast" aria-live="polite"></div>
+
+<!-- ─── API Key Modal ─────────────────────────────────── -->
+<div id="apikey-modal-backdrop" class="modal-backdrop hidden" aria-hidden="true"></div>
+<div id="apikey-modal" class="apikey-modal" role="dialog" aria-modal="true" aria-label="Enter API key">
+  <div class="apikey-modal-handle"></div>
+  <h2 class="apikey-modal-title">One quick thing</h2>
+  <p class="apikey-modal-body">Paste your Anthropic API key to get started. You only need to do this once.</p>
+  <div class="api-key-wrap">
+    <input type="password" id="modal-api-key-input" class="modal-api-key-input"
+      placeholder="sk-ant-api03-…"
+      autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" />
+    <button class="api-key-toggle" id="modal-api-key-toggle" aria-label="Toggle API key visibility">👁</button>
+  </div>
+  <button class="btn btn-primary btn-full" id="modal-lets-go-btn">Let's go →</button>
+  <a href="#" id="modal-api-link" class="apikey-modal-link">Get a key at console.anthropic.com</a>
+</div>
+
+<!-- ─── Ask More backdrop + bottom sheet ────────────── -->
+<div id="ask-more-backdrop" class="ask-more-backdrop hidden" aria-hidden="true"></div>
+<div id="ask-more-panel" class="ask-more-panel" role="dialog" aria-label="Ask more about this palm" aria-modal="true">
+  <div class="ask-more-header">
+    <h3 id="ask-more-title">Ask about this palm</h3>
+    <button class="ask-more-close" id="ask-more-close" aria-label="Close">✕</button>
+  </div>
+  <div class="ask-more-messages" id="ask-more-messages">
+    <div class="ask-more-empty" id="ask-more-empty">
+      Ask anything about this palm — care tips, history, identification details, or fun facts.
+    </div>
+  </div>
+  <div class="ask-more-input-row">
+    <input type="text" id="ask-more-input" placeholder="Ask a question…"
+      autocomplete="off" autocorrect="off" autocapitalize="sentences" />
+    <button id="ask-more-send">Send</button>
+  </div>
+</div>
+
+<!-- ─── Celebration Overlay (new species unlock) ─────── -->
+<div id="celebration-overlay" role="dialog" aria-label="New species unlocked!" aria-modal="true">
+  <!-- Confetti injected by JS -->
+  <div class="celebration-new-label">New Species Unlocked! 🎉</div>
+  <div id="celebration-sticker" class="celebration-sticker">
+    <!-- Sticker content injected by JS -->
+  </div>
+  <div id="celebration-title" class="celebration-title"></div>
+  <div class="celebration-sub">Added to your collection!</div>
+  <div id="celebration-milestone-banner" class="celebration-milestone-banner hidden"></div>
+  <div class="celebration-dismiss-hint">Tap anywhere to continue</div>
+</div>
+
+<div id="app">
+
+  <!-- ═══════════════════════════════════════════════════
+       SCREEN 1: HOME
+  ════════════════════════════════════════════════════ -->
+  <section id="screen-home" class="screen active" aria-label="Home">
+
+    <!-- Compact header -->
+    <div class="home-header-bar">
+      <span class="home-logo-small">🌴</span>
+      <span class="home-title-small">Palm ID</span>
+    </div>
+
+    <!-- Species counter badge — tappable shortcut to Collection -->
+    <button class="home-species-badge" id="home-species-badge" aria-label="View your collection">
+      <span>🌿</span>
+      <span class="badge-count" id="home-species-count">0</span>
+      <span>species found</span>
+    </button>
+
+    <!-- Hero camera area -->
+    <div class="home-hero">
+      <button class="camera-btn" id="open-camera-btn" aria-label="Take or upload a photo">
+        <span class="camera-btn-palm">🌴</span>
+        <span class="camera-btn-label">📷 Identify</span>
+      </button>
+      <p class="home-hero-hint">Point at any palm. We'll handle the rest.</p>
+    </div>
+
+    <!-- Palm of the Day card -->
+    <div class="potd-card" id="potd-card" aria-label="Palm of the Day">
+      <div class="potd-eyebrow">🌿 Palm of the Day</div>
+      <div class="potd-body">
+        <span class="potd-emoji">🌴</span>
+        <div class="potd-text">
+          <div class="potd-name" id="potd-name"></div>
+          <div class="potd-sci" id="potd-sci"></div>
+          <div class="potd-fact" id="potd-fact"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A2HS banner — shown only when NOT in standalone mode -->
+    <div id="a2hs-banner" class="hidden">
+      <strong>📱 Add to Home Screen</strong> for the full app experience.<br>
+      Tap <strong>Share → Add to Home Screen</strong> in Safari.
+    </div>
+
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SCREEN 2: CAMERA / PREVIEW
+  ════════════════════════════════════════════════════ -->
+  <section id="screen-camera" class="screen" aria-label="Camera">
+
+    <div class="top-bar">
+      <button class="back-btn" data-back aria-label="Back to home">‹</button>
+      <h1>New Identification</h1>
+    </div>
+
+    <div class="camera-content">
+
+      <!-- File input — triggers camera or gallery -->
+      <input type="file" id="file-input" accept="image/*" aria-label="Select photo" />
+
+      <!-- Upload zone (shown before image selected) -->
+      <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Tap to take or choose a photo">
+        <span class="upload-icon">📸</span>
+        <p>Take a Photo or Choose from Gallery</p>
+        <small>Point the camera at a palm tree for best results</small>
+      </div>
+
+      <!-- Preview (shown after image selected) -->
+      <div id="preview-wrap">
+        <img id="preview-img" alt="Selected palm tree photo" />
+        <!-- Pulse loading overlay (shown during API call) -->
+        <div id="photo-loading-overlay" class="photo-loading-overlay hidden">
+          <div class="pulse-circle"></div>
+          <div class="loading-cycling-text" id="loading-cycling-text">Examining the fronds…</div>
+        </div>
+        <!-- Multi-photo strip (shown when 2–3 photos loaded) -->
+        <div id="photo-strip" class="photo-strip hidden"></div>
+        <div class="preview-actions">
+          <button class="btn btn-secondary" id="change-photo-btn">🔄 Change</button>
+          <button class="btn btn-outline" id="add-photo-btn">➕ Add photo</button>
+          <button class="btn btn-primary" id="identify-btn">🔍 Identify This Palm</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SCREEN 3: RESULTS
+  ════════════════════════════════════════════════════ -->
+  <section id="screen-results" class="screen" aria-label="Results">
+
+    <div class="top-bar">
+      <button class="back-btn" id="results-back-btn" aria-label="Back">‹</button>
+      <h1>Result</h1>
+    </div>
+
+    <!-- Palm identified result -->
+    <div id="palm-result" class="hidden">
+
+      <!-- Hero photo: full-width, 240px, object-fit cover -->
+      <img id="result-thumb" class="result-hero-photo" alt="Identified palm tree" />
+
+      <!-- Identity: name, sci, confidence pill, description -->
+      <div class="result-identity-section">
+        <h2 id="result-common-name" class="result-common-name"></h2>
+        <p id="result-sci-name" class="result-sci-name"></p>
+        <span id="confidence-badge" class="badge conf-pill"></span>
+        <p id="result-description" class="result-description-text"></p>
+      </div>
+
+      <!-- Learn more (expandable): status, features, fun facts -->
+      <div class="result-cards-pad">
+        <div class="learn-more-section" id="learn-more-section">
+          <button class="learn-more-toggle" id="learn-more-toggle" aria-expanded="false">
+            <span>Learn more</span>
+            <span class="lm-chevron">▼</span>
+          </button>
+          <div class="learn-more-content" id="learn-more-content">
+            <div class="lm-status-row">
+              <span id="status-badge" class="badge"></span>
+            </div>
+            <div id="features-card">
+              <div class="learn-more-block-title">Identifying Features</div>
+              <ul id="features-list" class="feature-list"></ul>
+            </div>
+            <div id="fun-facts-section">
+              <div class="learn-more-block-title">Fun Facts</div>
+              <div id="fun-facts-wrap" class="fun-facts"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback row (Feature 3) -->
+      <div class="result-cards-pad">
+        <div id="feedback-row" class="feedback-row hidden">
+          <div class="feedback-label">How'd we do?</div>
+          <div class="feedback-btns">
+            <button class="feedback-btn" data-fb="correct">👍 Correct</button>
+            <button class="feedback-btn" data-fb="unsure">🤷 Not sure</button>
+            <button class="feedback-btn" data-fb="wrong">👎 Wrong</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes (add a note to this sighting) -->
+      <div class="result-cards-pad" id="note-section" style="display:none">
+        <button class="note-trigger-link" id="note-trigger-btn">📝 Add a note</button>
+        <div id="note-expand" class="note-expand hidden">
+          <textarea id="note-textarea" rows="3" placeholder="e.g. neighbor's yard on 5th St, Vizcaya Gardens…"></textarea>
+          <div class="note-actions-row">
+            <button class="btn btn-primary btn-sm" id="save-note-btn">Save note</button>
+            <span class="note-saved-msg hidden" id="note-saved-msg">Note saved ✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Could-also-be amber card -->
+      <div class="result-cards-pad">
+        <div id="could-also-be-card" class="could-also-be-card hidden">
+          <div class="cab-icon">🔍</div>
+          <div class="cab-body">
+            <div class="cab-label">Could also be</div>
+            <div id="could-also-be-text" class="cab-text"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ask More trigger (Feature 2) -->
+      <div id="results-ask-more-wrap" class="result-cards-pad hidden">
+        <button class="btn btn-secondary btn-full" id="ask-more-btn">🌴 Ask more about this palm</button>
+      </div>
+
+      <!-- Care tips: soft, at very bottom -->
+      <div id="care-card" class="care-tips-section hidden">
+        <div class="care-tips-heading">🌿 If this is your tree...</div>
+        <p id="result-care" class="care-tips-text"></p>
+      </div>
+
+      <!-- Action bar -->
+      <div id="results-actions" class="result-actions-bar hidden">
+        <button class="btn btn-ghost" id="try-another-btn">📷 Try Another</button>
+        <div class="share-btn-wrap">
+          <button class="btn btn-ghost" id="share-btn">🔗 Share</button>
+          <div class="share-dropdown hidden" id="share-dropdown">
+            <button class="share-dropdown-item" id="share-copy-btn">📋 Copy to clipboard</button>
+            <button class="share-dropdown-item" id="share-download-btn">⬇️ Download image</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost" id="save-btn" disabled>💾 Saved ✓</button>
+      </div>
+
+    </div>
+
+    <!-- Not-a-palm message -->
+    <div id="not-palm-result" class="not-palm-card hidden">
+      <div class="emoji">🚫🌴</div>
+      <h2>Not a Palm Tree</h2>
+      <p id="not-palm-message"></p>
+      <button class="btn btn-primary btn-full" id="not-palm-retry-btn">📷 Try Another Photo</button>
+    </div>
+
+    <!-- Error message -->
+    <div id="error-result" class="error-card hidden">
+      <div class="emoji">⚠️</div>
+      <h3>Something Went Wrong</h3>
+      <p id="error-message"></p>
+      <button class="btn btn-primary" id="error-retry-btn">🔄 Try Again</button>
+    </div>
+
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SCREEN 4: HISTORY
+  ════════════════════════════════════════════════════ -->
+  <section id="screen-history" class="screen" aria-label="History">
+
+    <div class="top-bar">
+      <button class="back-btn" data-back aria-label="Back to home">‹</button>
+      <h1>History</h1>
+    </div>
+
+    <!-- View toggle: List / Map -->
+    <div class="history-toggle-wrap" id="history-toggle-wrap">
+      <div class="history-view-toggle" role="group" aria-label="History view">
+        <button class="history-view-btn active" id="history-btn-list" data-view="list">📋 List</button>
+        <button class="history-view-btn" id="history-btn-map" data-view="map">🗺 Map</button>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="history-search-wrap" id="history-search-wrap" style="display:none">
+      <input type="search" id="history-search-input"
+        placeholder="Search species…"
+        autocomplete="off" autocorrect="off" autocapitalize="none" />
+    </div>
+
+    <!-- List view -->
+    <div class="history-content" id="history-list">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Map view (hidden initially) -->
+    <div id="history-map-container" class="hidden">
+      <div id="history-map"></div>
+    </div>
+
+    <div class="history-clear-wrap" id="history-clear-wrap">
+      <button class="btn btn-danger btn-full" id="clear-history-btn">🗑 Clear All History</button>
+    </div>
+
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SCREEN 5: COLLECTION
+  ════════════════════════════════════════════════════ -->
+  <section id="screen-collection" class="screen" aria-label="Species Collection">
+
+    <div class="top-bar">
+      <button class="back-btn" data-back aria-label="Back to home">‹</button>
+      <h1>My Collection</h1>
+    </div>
+
+    <!-- Hero counter -->
+    <div class="collection-hero">
+      <div class="collection-count-num" id="collection-count-num">0</div>
+      <div class="collection-count-label">species identified</div>
+    </div>
+
+    <!-- Milestone chips strip -->
+    <div class="milestones-strip" id="milestones-strip" aria-label="Milestones">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Sticker grid section label -->
+    <div class="collection-section-label" id="collection-section-label" style="display:none">
+      Species Stickers
+    </div>
+
+    <!-- Sticker grid (or empty state) -->
+    <div id="sticker-grid-wrap">
+      <!-- Populated by JS -->
+    </div>
+
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       SCREEN 6: SETTINGS
+  ════════════════════════════════════════════════════ -->
+  <section id="screen-settings" class="screen" aria-label="Settings">
+
+    <div class="top-bar">
+      <button class="back-btn" data-back aria-label="Back to home">‹</button>
+      <h1>Settings</h1>
+    </div>
+
+    <div class="settings-content">
+
+      <div class="settings-card">
+        <h2>🔑 Anthropic API Key</h2>
+        <p>Enter your Anthropic API key to enable palm identification. Your key is stored locally on this device and never sent anywhere except the Anthropic API.</p>
+
+        <div class="api-key-wrap">
+          <input
+            type="password"
+            id="api-key-input"
+            placeholder="sk-ant-api03-…"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+          <button class="api-key-toggle" id="api-key-toggle" aria-label="Toggle API key visibility">👁</button>
+        </div>
+
+        <button class="btn btn-primary btn-full" id="save-api-key-btn">Save API Key</button>
+        <div class="save-indicator" id="save-indicator">✅ API key saved!</div>
+        <button class="btn btn-secondary btn-full" id="copy-api-key-btn" style="display:none">📋 Copy key to clipboard</button>
+
+        <div class="info-box">
+          Get a free API key at <a href="#" id="api-link">console.anthropic.com</a>.<br>
+          Usage is billed per-request. Identifying a palm typically costs &lt;$0.01 using Claude claude-sonnet-4-6.
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h2>📊 Statistics</h2>
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num" id="stat-total">0</div>
+            <div class="stat-label">IDs Made</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="stat-species">0</div>
+            <div class="stat-label">Species Found</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Feedback card (Feature 3) — visible only when feedback exists -->
+      <div class="settings-card hidden" id="export-feedback-card">
+        <h2>📤 Export Feedback</h2>
+        <p>Download your identification feedback as JSON. Useful for reviewing accuracy or sharing to help improve the prompt.</p>
+        <button class="btn btn-primary btn-full" id="export-feedback-btn">Download palm-id-feedback.json</button>
+      </div>
+
+      <div class="settings-card">
+        <h2>ℹ️ About Palm ID</h2>
+        <small>
+          Palm ID uses Claude AI (claude-opus-4-6) to identify palm tree species in South Florida.
+          Photos are sent to the Anthropic API for analysis. Image data is not stored on Anthropic's servers.
+        </small>
+        <small>
+          For best results, photograph the full trunk and fronds in good lighting.
+          Including crownshaft, frond shape, and trunk texture significantly improves accuracy.
+        </small>
+        <small style="color: #9aa;">Version 1.0.0 · Made for South Florida 🌴</small>
+      </div>
+
+    </div>
+  </section>
+
+</div><!-- #app -->
+
+<!-- ─── Bottom Navigation Bar ────────────────────────── -->
+<nav id="bottom-nav" aria-label="Main navigation">
+  <button class="nav-tab active" id="nav-tab-home" data-screen="home">
+    <span class="nav-tab-icon">📷</span>
+    <span class="nav-tab-label">Identify</span>
+  </button>
+  <button class="nav-tab" id="nav-tab-history" data-screen="history">
+    <span class="nav-tab-icon">🗺</span>
+    <span class="nav-tab-label">History</span>
+  </button>
+  <button class="nav-tab" id="nav-tab-collection" data-screen="collection">
+    <span class="nav-tab-icon">🏆</span>
+    <span class="nav-tab-label">Collection</span>
+  </button>
+  <button class="nav-tab" id="nav-tab-settings" data-screen="settings">
+    <span class="nav-tab-icon">⚙️</span>
+    <span class="nav-tab-label">Settings</span>
+  </button>
+</nav>
+
+<!-- Hidden canvas for image resizing -->
+<canvas id="resize-canvas" style="display:none;"></canvas>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   PALM ID — Main Application Script
+   ═══════════════════════════════════════════════════════════ */
+
+'use strict';
+
+// ─── Constants ──────────────────────────────────────────────
+const STORAGE_KEY_HISTORY    = 'palmid_history';
+const STORAGE_KEY_APIKEY     = 'palmid_apikey';
+const STORAGE_KEY_COLLECTION = 'palmid_collection';  // gamification
+const MAX_HISTORY            = 50;
+const MAX_IMG_DIM         = 1024;   // px — resize before API call
+const THUMB_DIM           = 300;    // px — thumbnail stored in history
+const API_MODEL           = 'claude-opus-4-6';
+const API_URL             = 'https://api.anthropic.com/v1/messages';
+
+const SYSTEM_PROMPT = `You are an expert botanist specializing in palm trees worldwide, with particular depth in Florida, California, the Caribbean, and tropical species. When analyzing a photo, examine the trunk shape, frond type (fan/palmate vs feather/pinnate), crownshaft presence, overall height/scale, and any visible fruit or flowers.
+
+Pay special attention to these commonly confused species pairs:
+
+South Florida pairs:
+- Royal Palm (Roystonea regia) vs Joannis/Sunshine Palm (Veitchia joannis): Both have a green crownshaft and ringed gray trunk. Royal Palms grow much taller (60-100ft), have a more dramatically bright green crownshaft, and a cement-gray trunk that often bulges near the middle. Joannis are shorter, more slender, common in residential landscaping, with a slightly less vivid crownshaft.
+- Bottle Palm (Hyophorbe lagenicaulis) vs Spindle Palm (Hyophorbe verschaffeltii): These are the single most confused pair in South Florida landscaping — both are short, stocky Hyophorbe palms with swollen trunks and a smooth green crownshaft. The key difference is trunk shape: Bottle Palm has a wide, rounded, flask/bottle-shaped trunk that is broadest near the BASE and tapers sharply going up — like an upside-down teardrop. Spindle Palm has a more symmetrical spindle or barrel shape that is broadest in the MIDDLE and tapers toward both top and bottom — like a football or elongated oval. Bottle Palm also typically stays shorter (under 12ft) and has a more dramatic bulge. Both are ubiquitous in South Florida residential and commercial landscaping.
+- Bottle Palm (Hyophorbe lagenicaulis) vs Buccaneer Palm (Pseudophoenix sargentii): Buccaneer has a more evenly tapered trunk, grayish-blue fronds, and is rare (native to Florida Keys/Bahamas) — unlikely in typical landscaping.
+- Sabal Palm (Sabal palmetto) vs Washingtonian Palm (Washingtonia robusta): Both can have fibrous "boot" stubs on trunk. Sabal has costapalmate (fan) fronds with a prominent midrib, very stout trunk, and is Florida's state tree. Washingtonia grows much taller and more slender, with a skirt of dead fronds if untrimmed.
+- Queen Palm (Syagrus romanzoffiana) vs Alexander Palm (Ptychosperma elegans): Both have pinnate fronds and no crownshaft. Queen Palm is larger with a smooth gray trunk and long drooping fronds. Alexander Palm is more slender with a prominent whitish crownshaft and more upright fronds.
+- Coconut Palm (Cocos nucifera): Usually identifiable by its leaning trunk, large pinnate fronds, and coconuts — but young specimens without fruit can be confused with Queen Palm.
+- Montgomery Palm (Veitchia montgomeryana) vs Christmas Palm (Adonidia merrillii): Both are small elegant palms with crownshafts. Christmas Palm stays under 25ft with bright red fruit clusters; Montgomery is taller and has orange-red fruit.
+- Sylvester/Silver Date Palm (Phoenix sylvestris) vs Canary Island Date Palm (Phoenix canariensis): Both are large, robust fan palms with spiny fronds. Canary Island is much bulkier with a massive pineapple-like trunk base; Sylvester is more slender with a silvery-gray frond color.
+
+California pairs:
+- Washingtonia filifera (California Fan Palm) vs Washingtonia robusta (Mexican Fan Palm): Both are tall fan palms extremely common in California. filifera is stouter with a wider trunk and retains a dense skirt of dead fronds; robusta is much taller and more slender with a tighter skirt. filifera is native to California desert oases; robusta is the one lining LA streets.
+- King Palm (Archontophoenix cunninghamiana) vs Queen Palm (Syagrus romanzoffiana): Both extremely common in California landscaping. King Palm has a prominent purple/lavender crownshaft and upright, arching fronds; Queen Palm has no crownshaft, droopier fronds, and a rougher gray trunk.
+- Canary Island Date Palm (Phoenix canariensis) vs Sylvester/Silver Date Palm (Phoenix sylvestris): Both massive, robust palms with spiny pinnate fronds and a pineapple-textured trunk base. Canary Island is much bulkier with a wider, more dramatic trunk base and denser crown; Sylvester is more slender with a silvery-gray frond tint.
+- Brahea armata (Mexican Blue Palm / Blue Hesper Palm): Distinctive silver-blue fan fronds — almost unmistakable, but sometimes confused with Bismarckia nobilis (also silver-blue fans, but Bismarckia is much larger and from Madagascar).
+- Jubaea chilensis (Chilean Wine Palm): The world's most massive palm trunk — gray, smooth, enormous girth. Sometimes confused with Canary Island Date Palm when young, but adult specimens are unmistakable.
+- Trachycarpus fortunei (Windmill Palm): Common in Northern California and Pacific Northwest. Distinctive fibrous, hairy brown trunk wrapping, small fan fronds. Much hardier than most palms.
+- Chamaerops humilis (Mediterranean Fan Palm / European Fan Palm): Multi-trunked, shrubby fan palm, very common in CA landscaping. Only palm native to continental Europe.
+
+Caribbean species and pairs:
+- Roystonea regia (Cuban Royal Palm) vs Roystonea oleracea (Caribbean Royal Palm): Both tall, stately royal palms with green crownshafts. R. regia (already in Florida section) has a trunk that often bulges in the middle; R. oleracea is taller and more uniformly cylindrical, dominant in the eastern Caribbean (Barbados, Trinidad).
+- Thrinax radiata (Florida Thatch Palm / Caribbean Thatch Palm) vs Coccothrinax argentata (Silver Palm): Both small, graceful fan palms native to the Caribbean and South Florida Keys. Thrinax has uniformly green fronds on both sides; Coccothrinax has distinctively silvery-white frond undersides — flip a frond and it's immediately obvious.
+- Coccothrinax crinita (Old Man Palm): Unmistakable — the trunk is densely covered in long, shaggy, hair-like brown fibers. Native to Cuba. One of the most distinctive palms in the Caribbean.
+- Sabal causiarum (Puerto Rico Hat Palm): A large, robust Sabal fan palm native to Puerto Rico and Hispaniola. Similar to Sabal palmetto but with a thicker trunk and larger, stiffer fronds. Historically used for weaving hats and baskets.
+- Acrocomia aculeata (Macaw Palm / Grugru Palm): Widespread across the Caribbean and tropical Americas. Distinctive for its spiny trunk covered in long black spines — nearly impossible to confuse with anything else once you see the spines. Pinnate fronds, also with spines on the rachis.
+- Bactris gasipaes (Peach Palm / Pejibaye): Slender, clustering palm with spiny trunk and stems. Common in Caribbean and Central America. Grown for its nutritious orange-red fruit.
+- Gaussia attenuata (Puerto Rican Gaussia / Palma de Lluvia): Slender, elegant palm native to Puerto Rico. Swollen base tapering to a very thin upper trunk — almost hourglass-shaped. Rare and striking.
+- Pseudophoenix sargentii (Buccaneer Palm): Already mentioned in Florida section — also native throughout the Bahamas and Caribbean. Reddish-orange fruit clusters when present are distinctive.
+- Dypsis lutescens (Areca Palm / Butterfly Palm / Golden Cane Palm): Multi-stemmed clustering palm with golden-yellow stems, extremely common throughout the Caribbean in landscaping. Sometimes confused with Chrysalidocarpus — same species, older name.
+- Pritchardia (Loulu Palms): Fan palms occasionally planted in the Caribbean, more common in Hawaii. Distinctive for their large, nearly circular, stiff fan fronds with minimal division.
+
+Also consider: Sago Palm (Cycas revoluta) — not a true palm but commonly called one; Foxtail Palm (Wodyetia bifurcata); Areca/Butterfly Palm (Dypsis lutescens); Bismarck Palm (Bismarckia nobilis, distinctive silver-blue fan fronds).
+
+If the location context suggests a specific region, weight your identification toward species common in that region. However, always consider that cultivated/landscaped specimens may be far outside their native range.
+
+When uncertain between two species, state both possibilities and explain exactly what feature would distinguish them (e.g. "check the fruit color" or "look at the trunk base shape").
+
+Respond ONLY with valid JSON — no markdown, no explanation outside the JSON:
+{
+  "isPalm": true,
+  "commonName": "Royal Palm",
+  "scientificName": "Roystonea regia",
+  "confidence": "high",
+  "identifyingFeatures": ["bright green crownshaft", "cement-gray ringed trunk"],
+  "description": "2-3 sentence description",
+  "status": "native",
+  "funFacts": ["fact 1", "fact 2"],
+  "careNotes": "brief note or null",
+  "couldAlsoBe": "Joannis Palm (Veitchia joannis) — distinguish by checking trunk height and crownshaft brightness"
+}
+
+The couldAlsoBe field should be null if confidence is high, or a string naming the alternative species and exactly what to look for to distinguish them.
+
+If not a palm: {"isPalm": false, "message": "This appears to be a [plant type], not a palm tree."}`;
+
+// ─── State ───────────────────────────────────────────────────
+let currentImageDataUrl    = null;   // full-size (resized to 1024px) for API
+let currentThumbDataUrl    = null;   // 300px thumbnail for history
+let currentResult          = null;   // last API result object
+let currentHistoryEntryId  = null;   // F3: id of the most-recently saved history entry
+let historyViewMode        = 'list'; // F1: 'list' | 'map'
+let leafletMap             = null;   // F1: Leaflet map instance (lazy-init)
+let askMoreConversation    = [];     // F2: [{role, content}] for current session
+let currentAskMorePalm     = null;   // F2: result object for the open panel
+let askMoreSending         = false;  // F2: prevent double-send
+let currentImages          = [];     // F4: [{apiUrl, thumbUrl}] multi-photo
+let isAddingPhoto          = false;  // F4: true when next file-input change appends
+
+// ─── DOM refs ────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+const screens = {
+  home:       $('screen-home'),
+  camera:     $('screen-camera'),
+  results:    $('screen-results'),
+  history:    $('screen-history'),
+  collection: $('screen-collection'),
+  settings:   $('screen-settings'),
+};
+
+// ─── Screen Navigation ───────────────────────────────────────
+// Screens without a nav tab (camera, results) don't highlight any tab
+const NAV_TAB_SCREENS = ['home', 'history', 'collection', 'settings'];
+
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+  window.scrollTo(0, 0);
+  // Update bottom nav active state
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.screen === name);
+  });
+}
+
+// Back buttons (data-back attribute) → go home
+document.querySelectorAll('[data-back]').forEach(btn => {
+  btn.addEventListener('click', () => showScreen('home'));
+});
+
+// Home species badge → collection shortcut
+$('home-species-badge').addEventListener('click', () => {
+  renderCollection();
+  showScreen('collection');
+});
+
+// Open camera from home
+$('open-camera-btn').addEventListener('click', () => {
+  resetCameraScreen();
+  showScreen('camera');
+});
+
+// Results back → home
+$('results-back-btn').addEventListener('click', () => showScreen('home'));
+
+// ─── Bottom Nav Tab Listeners ────────────────────────────────
+$('nav-tab-home').addEventListener('click', () => showScreen('home'));
+$('nav-tab-history').addEventListener('click', () => {
+  renderHistory();
+  showScreen('history');
+});
+$('nav-tab-collection').addEventListener('click', () => {
+  renderCollection();
+  showScreen('collection');
+});
+$('nav-tab-settings').addEventListener('click', () => {
+  loadSettingsScreen();
+  showScreen('settings');
+});
+
+
+// ─── A2HS Banner ─────────────────────────────────────────────
+// Show the "Add to Home Screen" hint when not running in standalone/TWA mode
+(function checkA2HS() {
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  if (!isStandalone) {
+    $('a2hs-banner').classList.remove('hidden');
+  }
+})();
+
+
+// ─── Camera / File Input ─────────────────────────────────────
+const fileInput   = $('file-input');
+const uploadZone  = $('upload-zone');
+const previewWrap = $('preview-wrap');
+const previewImg  = $('preview-img');
+
+// Clicking the upload zone triggers the hidden file input
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') fileInput.click();
+});
+
+$('change-photo-btn').addEventListener('click', () => {
+  fileInput.value = '';
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  try {
+    const [apiUrl, thumbUrl] = await resizeImage(file, MAX_IMG_DIM, THUMB_DIM);
+
+    if (isAddingPhoto) {
+      currentImages.push({ apiUrl, thumbUrl });
+    } else {
+      currentImages = [{ apiUrl, thumbUrl }];
+    }
+    isAddingPhoto = false;
+
+    // Keep legacy vars in sync (first image used for result hero / history thumb)
+    currentImageDataUrl = currentImages[0].apiUrl;
+    currentThumbDataUrl = currentImages[0].thumbUrl;
+
+    // Preview: show the most-recently added photo
+    previewImg.src = currentImages[currentImages.length - 1].apiUrl;
+    uploadZone.style.display = 'none';
+    previewWrap.style.display = 'flex';
+
+    updatePhotoStrip();
+  } catch (err) {
+    console.error('Image load error:', err);
+    isAddingPhoto = false;
+    alert('Could not load that image. Please try another.');
+  }
+});
+
+function resetCameraScreen() {
+  fileInput.value  = '';
+  previewWrap.style.display = 'none';
+  uploadZone.style.display  = '';
+  currentImageDataUrl = null;
+  currentThumbDataUrl = null;
+  currentImages       = [];
+  isAddingPhoto       = false;
+  const strip = $('photo-strip');
+  strip.classList.add('hidden');
+  strip.innerHTML = '';
+  $('add-photo-btn').style.display    = '';
+  $('change-photo-btn').style.display = '';
+}
+
+/** Sync the photo-strip UI to currentImages. */
+function updatePhotoStrip() {
+  const strip     = $('photo-strip');
+  const addBtn    = $('add-photo-btn');
+  const changeBtn = $('change-photo-btn');
+
+  if (currentImages.length <= 1) {
+    strip.classList.add('hidden');
+    strip.innerHTML = '';
+    changeBtn.style.display = '';
+  } else {
+    strip.classList.remove('hidden');
+    changeBtn.style.display = 'none';
+    strip.innerHTML = '';
+
+    currentImages.forEach((img, idx) => {
+      const item = document.createElement('div');
+      item.className = 'photo-strip-item';
+      item.innerHTML = `
+        <img class="photo-strip-thumb" src="${img.thumbUrl}" alt="Photo ${idx + 1}" />
+        <button class="photo-strip-remove" aria-label="Remove photo ${idx + 1}" data-idx="${idx}">✕</button>
+      `;
+      strip.appendChild(item);
+    });
+
+    strip.querySelectorAll('.photo-strip-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        currentImages.splice(idx, 1);
+        if (currentImages.length === 0) {
+          resetCameraScreen();
+        } else {
+          currentImageDataUrl = currentImages[0].apiUrl;
+          currentThumbDataUrl = currentImages[0].thumbUrl;
+          previewImg.src = currentImages[currentImages.length - 1].apiUrl;
+          updatePhotoStrip();
+        }
+      });
+    });
+  }
+
+  // Hide "Add another" at max (3 photos)
+  addBtn.style.display = currentImages.length >= 3 ? 'none' : '';
+}
+
+// "Add photo" button triggers an additional photo pick
+$('add-photo-btn').addEventListener('click', () => {
+  isAddingPhoto = true;
+  fileInput.value = '';
+  fileInput.click();
+});
+
+
+// ─── Image Resize Utility ─────────────────────────────────────
+/**
+ * Resize an image File to two data URLs: one at maxDim for the API,
+ * one at thumbDim for the history thumbnail.
+ * Returns a Promise resolving to [apiDataUrl, thumbDataUrl].
+ */
+function resizeImage(file, maxDim, thumbDim) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        resolve([
+          drawResized(img, maxDim),
+          drawResized(img, thumbDim),
+        ]);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function drawResized(img, maxDim) {
+  const canvas = $('resize-canvas');
+  const ctx    = canvas.getContext('2d');
+  const ratio  = Math.min(1, maxDim / Math.max(img.width, img.height));
+  canvas.width  = Math.round(img.width  * ratio);
+  canvas.height = Math.round(img.height * ratio);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+
+// ─── Identify Button ─────────────────────────────────────────
+$('identify-btn').addEventListener('click', async () => {
+  if (!currentImageDataUrl) {
+    alert('Please select an image first.');
+    return;
+  }
+  const apiKey = localStorage.getItem(STORAGE_KEY_APIKEY);
+  if (!apiKey) {
+    // Show inline API key modal; on success proceed with identification
+    showApiKeyModal(() => doIdentification());
+    return;
+  }
+  await doIdentification();
+});
+
+async function doIdentification() {
+  const apiKey = localStorage.getItem(STORAGE_KEY_APIKEY);
+  if (!apiKey) return;
+  showLoading(true);
+  try {
+    // Use currentImages array; fall back to legacy single-image vars if needed
+    const imgs = currentImages.length > 0
+      ? currentImages
+      : [{ apiUrl: currentImageDataUrl, thumbUrl: currentThumbDataUrl }];
+    // Run GPS capture in parallel with the API call
+    const [result, coords] = await Promise.all([
+      identifyPalm(imgs, apiKey),
+      getGPSCoords(),
+    ]);
+    currentResult = result;
+    const thumbForResult = (currentImages[0] || {}).thumbUrl || currentThumbDataUrl;
+    renderResults(result, thumbForResult, coords);
+    showScreen('results');
+  } catch (err) {
+    console.error('API error:', err);
+    showResults_Error(err.message || 'Unknown error. Please try again.');
+    showScreen('results');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ─── API Key Modal ────────────────────────────────────────────
+let _apiKeyModalCallback = null;
+
+function showApiKeyModal(onSuccess) {
+  $('modal-api-key-input').value = localStorage.getItem(STORAGE_KEY_APIKEY) || '';
+  $('apikey-modal-backdrop').classList.remove('hidden');
+  $('apikey-modal').classList.add('open');
+  _apiKeyModalCallback = onSuccess;
+  setTimeout(() => $('modal-api-key-input').focus(), 350);
+}
+
+function closeApiKeyModal() {
+  $('apikey-modal').classList.remove('open');
+  $('apikey-modal-backdrop').classList.add('hidden');
+}
+
+$('modal-lets-go-btn').addEventListener('click', () => {
+  const key = $('modal-api-key-input').value.trim();
+  if (!key) { $('modal-api-key-input').focus(); return; }
+  localStorage.setItem(STORAGE_KEY_APIKEY, key);
+  // Also keep settings screen input in sync
+  if ($('api-key-input')) $('api-key-input').value = key;
+  closeApiKeyModal();
+  if (_apiKeyModalCallback) {
+    _apiKeyModalCallback();
+    _apiKeyModalCallback = null;
+  }
+});
+
+$('modal-api-key-toggle').addEventListener('click', () => {
+  const input = $('modal-api-key-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+$('apikey-modal-backdrop').addEventListener('click', closeApiKeyModal);
+
+$('modal-api-link').addEventListener('click', e => {
+  e.preventDefault();
+  alert('Visit https://console.anthropic.com to create an API key.\nSign up or log in, then go to API Keys.');
+});
+
+$('modal-api-key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('modal-lets-go-btn').click();
+});
+
+
+// ─── Anthropic API Call ───────────────────────────────────────
+async function identifyPalm(images, apiKey) {
+  // Build content blocks: optional multi-photo preamble, then each image, then question
+  const contentItems = [];
+
+  if (images.length > 1) {
+    contentItems.push({
+      type: 'text',
+      text: `The user has provided ${images.length} photo(s) of the same palm from different angles. Use all images together to make the most accurate identification.`,
+    });
+  }
+
+  images.forEach(img => {
+    const [header, base64Data] = img.apiUrl.split(',');
+    const mediaType = header.match(/:(.*?);/)[1];
+    contentItems.push({
+      type: 'image',
+      source: { type: 'base64', media_type: mediaType, data: base64Data },
+    });
+  });
+
+  contentItems.push({
+    type: 'text',
+    text: images.length === 1
+      ? 'Please identify the palm tree in this photo.'
+      : 'Please identify the palm tree shown across these photos.',
+  });
+
+  const payload = {
+    model: API_MODEL,
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: contentItems }],
+  };
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key':          apiKey,
+      'anthropic-version':  '2023-06-01',
+      'content-type':       'application/json',
+      // Required for browser CORS calls to Anthropic API
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    let errMsg = `API error ${response.status}`;
+    try {
+      const errJson = JSON.parse(errBody);
+      errMsg = errJson.error?.message || errMsg;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const data = await response.json();
+
+  // Extract text content from response
+  const rawText = data.content?.[0]?.text || '';
+
+  // Strip any accidental markdown code fences
+  const cleanText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleanText);
+  } catch (parseErr) {
+    console.warn('JSON parse failed, raw response:', rawText);
+    throw new Error(`Could not parse AI response. Raw text: "${rawText.slice(0, 200)}"`);
+  }
+
+  return parsed;
+}
+
+
+// ─── Loading State (photo pulse) ─────────────────────────────
+const LOADING_MESSAGES = [
+  'Examining the fronds…',
+  'Checking the trunk…',
+  'Consulting the experts…',
+];
+let _loadingTextInterval = null;
+let _loadingTextIdx     = 0;
+
+function showLoading(visible) {
+  const previewImg     = $('preview-img');
+  const pulseOverlay   = $('photo-loading-overlay');
+  const cyclingText    = $('loading-cycling-text');
+  const identifyBtn    = $('identify-btn');
+  const changeBtn      = $('change-photo-btn');
+
+  if (visible) {
+    previewImg.classList.add('dimmed');
+    pulseOverlay.classList.remove('hidden');
+    identifyBtn.disabled             = true;
+    changeBtn.disabled               = true;
+    $('add-photo-btn').disabled      = true;
+    // Cycling text
+    _loadingTextIdx = 0;
+    cyclingText.textContent = LOADING_MESSAGES[0];
+    _loadingTextInterval = setInterval(() => {
+      _loadingTextIdx = (_loadingTextIdx + 1) % LOADING_MESSAGES.length;
+      cyclingText.textContent = LOADING_MESSAGES[_loadingTextIdx];
+    }, 1500);
+  } else {
+    previewImg.classList.remove('dimmed');
+    pulseOverlay.classList.add('hidden');
+    identifyBtn.disabled             = false;
+    changeBtn.disabled               = false;
+    $('add-photo-btn').disabled      = false;
+    clearInterval(_loadingTextInterval);
+  }
+}
+
+
+// ─── Render Results ───────────────────────────────────────────
+function renderResults(result, thumbDataUrl, coords) {
+  // Hide all result states first
+  $('palm-result').classList.add('hidden');
+  $('not-palm-result').classList.add('hidden');
+  $('error-result').classList.add('hidden');
+
+  if (!result.isPalm) {
+    $('not-palm-message').textContent = result.message || 'This does not appear to be a palm tree.';
+    $('not-palm-result').classList.remove('hidden');
+    return;
+  }
+
+  // ── Hero photo ──
+  $('result-thumb').src = thumbDataUrl;
+
+  // ── Name + sci name ──
+  $('result-common-name').textContent = result.commonName || 'Unknown Palm';
+  $('result-sci-name').textContent = result.scientificName || '';
+
+  // ── Confidence pill (single, compact) ──
+  const confBadge = $('confidence-badge');
+  const conf = (result.confidence || 'medium').toLowerCase();
+  const confDot = conf === 'high' ? '🟢' : conf === 'low' ? '🔴' : '🟡';
+  confBadge.className = `badge conf-pill badge-${conf}`;
+  confBadge.textContent = `${confDot} ${conf.charAt(0).toUpperCase() + conf.slice(1)} confidence`;
+
+  // ── Description ──
+  $('result-description').textContent = result.description || '';
+
+  // ── Collapse learn-more on fresh render ──
+  const lmSection = $('learn-more-section');
+  lmSection.classList.remove('expanded');
+  $('learn-more-toggle').setAttribute('aria-expanded', 'false');
+
+  // ── Status badge (inside learn-more) ──
+  const statusBadge = $('status-badge');
+  const status = (result.status || 'unknown').toLowerCase();
+  statusBadge.className = `badge badge-${status}`;
+  statusBadge.textContent = result.status
+    ? result.status.charAt(0).toUpperCase() + result.status.slice(1)
+    : 'Unknown Origin';
+
+  // ── Identifying features ──
+  const featList = $('features-list');
+  featList.innerHTML = '';
+  (result.identifyingFeatures || []).forEach(f => {
+    const li = document.createElement('li');
+    li.textContent = f;
+    featList.appendChild(li);
+  });
+  $('features-card').style.display = result.identifyingFeatures?.length ? '' : 'none';
+
+  // ── Fun facts ──
+  const factsWrap = $('fun-facts-wrap');
+  factsWrap.innerHTML = '';
+  (result.funFacts || []).forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'fun-fact';
+    div.textContent = f;
+    factsWrap.appendChild(div);
+  });
+  $('fun-facts-section').style.display = result.funFacts?.length ? '' : 'none';
+
+  // ── Care notes (soft, at very bottom) ──
+  if (result.careNotes) {
+    $('result-care').textContent = result.careNotes;
+    $('care-card').classList.remove('hidden');
+  } else {
+    $('care-card').classList.add('hidden');
+  }
+
+  // ── Could-also-be amber card ──
+  if (result.couldAlsoBe) {
+    $('could-also-be-text').textContent = result.couldAlsoBe;
+    $('could-also-be-card').classList.remove('hidden');
+  } else {
+    $('could-also-be-card').classList.add('hidden');
+  }
+
+  // ── Show result + action bar ──
+  $('palm-result').classList.remove('hidden');
+  $('results-actions').classList.remove('hidden');
+
+  // ── Auto-save to history ──
+  currentHistoryEntryId = saveToHistory(thumbDataUrl, result, coords);
+  // save-btn already set disabled in HTML; just show
+  $('save-btn').textContent = '💾 Saved ✓';
+  $('save-btn').disabled = true;
+
+  // ── Feedback row (F3) ──
+  $('feedback-row').classList.remove('hidden');
+  document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove(
+    'selected-correct','selected-unsure','selected-wrong'
+  ));
+
+  // ── Ask More button (F2) ──
+  $('results-ask-more-wrap').classList.remove('hidden');
+  askMoreConversation = [];
+  currentAskMorePalm  = result;
+
+  // ── Note section (F5) ──
+  $('note-section').style.display     = '';
+  $('note-trigger-btn').textContent   = '📝 Add a note';
+  $('note-trigger-btn').style.display = '';
+  $('note-expand').classList.add('hidden');
+  $('note-textarea').value            = '';
+  $('note-saved-msg').classList.add('hidden');
+
+  // ── Gamification ──
+  const isNew = recordToCollection(result);
+  updateHomeCounter();
+  if (isNew) {
+    setTimeout(() => showCelebration(result), 400);
+  }
+}
+
+// ─── Learn More toggle ────────────────────────────────────────
+$('learn-more-toggle').addEventListener('click', () => {
+  const section = $('learn-more-section');
+  const expanded = section.classList.toggle('expanded');
+  $('learn-more-toggle').setAttribute('aria-expanded', String(expanded));
+});
+
+function showResults_Error(message) {
+  $('palm-result').classList.add('hidden');
+  $('not-palm-result').classList.add('hidden');
+  $('error-message').textContent = message;
+  $('error-result').classList.remove('hidden');
+}
+
+
+// ─── Results Action Buttons ───────────────────────────────────
+$('try-another-btn').addEventListener('click', () => {
+  resetCameraScreen();
+  showScreen('camera');
+});
+$('not-palm-retry-btn').addEventListener('click', () => {
+  resetCameraScreen();
+  showScreen('camera');
+});
+$('error-retry-btn').addEventListener('click', () => {
+  showScreen('camera');
+});
+$('save-btn').addEventListener('click', () => {
+  // Already auto-saved, button is just visual confirmation
+});
+
+
+// ─── History Storage ──────────────────────────────────────────
+function getHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
+  } catch { return []; }
+}
+
+function saveToHistory(thumbDataUrl, result, coords) {
+  const history = getHistory();
+  const entry = {
+    id:        Date.now().toString(),
+    date:      new Date().toISOString(),
+    imageData: thumbDataUrl,
+    result:    result,
+    lat:       coords ? coords.lat : null,
+    lng:       coords ? coords.lng : null,
+    feedback:  null,   // F3: 'correct' | 'unsure' | 'wrong' | null
+    note:      null,   // F5: optional sighting note text
+  };
+  // Prepend newest first; keep max 50
+  history.unshift(entry);
+  if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+  localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+  return entry.id;
+}
+
+// ─── Render History Screen ────────────────────────────────────
+function renderHistory() {
+  const list    = $('history-list');
+  const history = getHistory();
+  list.innerHTML = '';
+
+  if (history.length === 0) {
+    list.innerHTML = `
+      <div class="history-empty">
+        <div class="emoji">🌴</div>
+        <p>No identifications yet.<br>Go find some palms!</p>
+        <button class="btn btn-primary" onclick="showScreen('camera')">📷 Identify a Palm</button>
+      </div>`;
+    $('history-clear-wrap').classList.add('hidden');
+    $('history-search-wrap').style.display = 'none';
+    return;
+  }
+
+  $('history-clear-wrap').classList.remove('hidden');
+  $('history-search-wrap').style.display = '';
+  $('history-search-input').value = '';
+
+  history.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.dataset.id         = entry.id;
+    item.dataset.commonName = entry.result?.commonName     || '';
+    item.dataset.sciName    = entry.result?.scientificName || '';
+
+    const dateStr = new Date(entry.date).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit',
+    });
+
+    const r = entry.result;
+    const features = (r.identifyingFeatures || []).slice(0, 3).join(' · ') || '';
+
+    item.innerHTML = `
+      <div class="history-item-row">
+        <img class="history-thumb" src="${entry.imageData}" alt="${r.commonName || 'Palm'}" />
+        <div class="history-info">
+          <div class="history-name">${r.commonName || 'Unknown Palm'}${entry.note ? ' 📝' : ''}</div>
+          <div class="history-sci">${r.scientificName || ''}</div>
+          <div class="history-date">${dateStr}</div>
+        </div>
+        <span class="history-chevron">›</span>
+      </div>
+      <div class="history-detail">
+        <img class="history-detail-img" src="${entry.imageData}" alt="${r.commonName}" />
+        <div class="detail-section">
+          <strong>Description</strong>
+          ${r.description || 'No description available.'}
+        </div>
+        ${features ? `<div class="detail-section"><strong>Key Features</strong>${features}</div>` : ''}
+        ${r.funFacts?.length ? `<div class="detail-section"><strong>Fun Facts</strong>${r.funFacts.map(f => `✨ ${f}`).join('<br>')}</div>` : ''}
+        ${entry.note ? `<div class="note-in-history">📝 ${escHtml(entry.note)}</div>` : ''}
+      </div>`;
+
+    // Toggle expand on click
+    item.querySelector('.history-item-row').addEventListener('click', () => {
+      item.classList.toggle('expanded');
+    });
+
+    list.appendChild(item);
+  });
+}
+
+// Clear history
+$('clear-history-btn').addEventListener('click', () => {
+  if (confirm('Clear all identification history? This cannot be undone.')) {
+    localStorage.removeItem(STORAGE_KEY_HISTORY);
+    renderHistory();
+  }
+});
+
+
+// ─── Settings Screen ──────────────────────────────────────────
+function loadSettingsScreen() {
+  const saved = localStorage.getItem(STORAGE_KEY_APIKEY) || '';
+  $('api-key-input').value = saved;
+
+  // Stats
+  const history = getHistory();
+  $('stat-total').textContent = history.length;
+  const species = new Set(history.map(h => h.result?.scientificName).filter(Boolean));
+  $('stat-species').textContent = species.size;
+
+  // Show export-feedback-card only when at least one entry has feedback
+  const hasFeedback = history.some(e => e.feedback);
+  $('export-feedback-card').classList.toggle('hidden', !hasFeedback);
+
+  // Show copy-key button only when a key is already saved
+  $('copy-api-key-btn').style.display = saved ? '' : 'none';
+}
+
+// Show/hide API key
+$('api-key-toggle').addEventListener('click', () => {
+  const input = $('api-key-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+// Save API key
+$('save-api-key-btn').addEventListener('click', () => {
+  const key = $('api-key-input').value.trim();
+  if (!key) {
+    alert('Please enter your API key.');
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY_APIKEY, key);
+
+  // Show saved indicator & reveal copy button
+  const indicator = $('save-indicator');
+  indicator.classList.add('show');
+  setTimeout(() => indicator.classList.remove('show'), 2500);
+  $('copy-api-key-btn').style.display = '';
+});
+
+// Copy API key to clipboard
+$('copy-api-key-btn').addEventListener('click', async () => {
+  const key = localStorage.getItem(STORAGE_KEY_APIKEY);
+  if (!key) return;
+  try {
+    await navigator.clipboard.writeText(key);
+    const btn = $('copy-api-key-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  } catch (err) {
+    // Fallback for older iOS
+    const ta = document.createElement('textarea');
+    ta.value = key;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = $('copy-api-key-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  }
+});
+
+// Prevent clicking the API link from navigating (just show instructions)
+$('api-link').addEventListener('click', e => {
+  e.preventDefault();
+  // On mobile Safari, we can't easily open a new tab via JS without user gesture issues.
+  // Best UX: just show the URL they need to visit.
+  alert('Visit https://console.anthropic.com to create an API key.\n\nSign up or log in, then go to API Keys to generate a new key.');
+});
+
+
+/* ═══════════════════════════════════════════════════════════
+   GAMIFICATION — Species Sticker Collection
+   ═══════════════════════════════════════════════════════════ */
+
+// ─── Sticker gradient palette (cycles by discovery order) ────
+const STICKER_GRADIENTS = ['sc-0','sc-1','sc-2','sc-3','sc-4','sc-5'];
+
+// ─── Milestone definitions ────────────────────────────────────
+const MILESTONES = [
+  { count: 1,  label: 'First Palm',   emoji: '🌱' },
+  { count: 5,  label: '5 Species',    emoji: '🌿' },
+  { count: 10, label: '10 Species',   emoji: '🌳' },
+  { count: 25, label: '25 Species',   emoji: '🏆' },
+  { count: 50, label: '50 Species',   emoji: '👑' },
+];
+
+// ─── Collection Storage ───────────────────────────────────────
+function getCollection() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY_COLLECTION) || '{}');
+  } catch { return {}; }
+}
+
+function saveCollection(col) {
+  localStorage.setItem(STORAGE_KEY_COLLECTION, JSON.stringify(col));
+}
+
+/**
+ * Add a palm result to the collection.
+ * Returns true if this is a BRAND-NEW species (first time seeing it).
+ */
+function recordToCollection(result) {
+  if (!result.isPalm || !result.commonName) return false;
+
+  const col  = getCollection();
+  const key  = result.commonName;   // use common name as the key
+  const isNew = !col[key];
+
+  if (isNew) {
+    // Assign a gradient slot based on insertion order
+    const existingCount = Object.keys(col).length;
+    col[key] = {
+      scientificName: result.scientificName || '',
+      firstSeen:      new Date().toISOString(),
+      count:          1,
+      gradientIdx:    existingCount % STICKER_GRADIENTS.length,
+    };
+  } else {
+    col[key].count += 1;
+  }
+
+  saveCollection(col);
+  return isNew;
+}
+
+// ─── Home Counter ─────────────────────────────────────────────
+function updateHomeCounter() {
+  const count = Object.keys(getCollection()).length;
+  $('home-species-count').textContent = count;
+}
+
+// ─── Celebration Overlay ──────────────────────────────────────
+let celebrationTimer = null;
+
+function showCelebration(result) {
+  const overlay = $('celebration-overlay');
+  const col     = getCollection();
+  const speciesCount = Object.keys(col).length;
+
+  // Build sticker card inside overlay
+  const stickerEl = $('celebration-sticker');
+  const entry     = col[result.commonName] || {};
+  const gradClass = STICKER_GRADIENTS[entry.gradientIdx ?? 0];
+
+  stickerEl.className = `celebration-sticker ${gradClass}`;
+  stickerEl.innerHTML = `
+    <div class="sticker-emoji">🌴</div>
+    <div class="sticker-name">${escHtml(result.commonName)}</div>
+    <div class="sticker-sci">${escHtml(result.scientificName || '')}</div>
+  `;
+
+  // Set title
+  $('celebration-title').textContent = `${result.commonName}!`;
+
+  // Hide milestone banner inside overlay — it shows as a toast after dismissal
+  $('celebration-milestone-banner').classList.add('hidden');
+
+  // Check for milestone (show as toast after overlay)
+  const hitMilestone = MILESTONES.find(m => m.count === speciesCount);
+
+  // Generate confetti (restrained: 30 pieces)
+  spawnConfetti(overlay);
+
+  // Show overlay
+  overlay.classList.add('active');
+
+  // Auto-dismiss after 2.5s (more restrained)
+  clearTimeout(celebrationTimer);
+  celebrationTimer = setTimeout(() => {
+    hideCelebration();
+    if (hitMilestone) {
+      setTimeout(() => showMilestoneToast(`${hitMilestone.emoji} Milestone: ${hitMilestone.label}!`), 300);
+    }
+  }, 2500);
+}
+
+// ─── Milestone Toast ──────────────────────────────────────────
+function showMilestoneToast(text) {
+  const toast = $('milestone-toast');
+  toast.textContent = text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function hideCelebration() {
+  clearTimeout(celebrationTimer);
+  $('celebration-overlay').classList.remove('active');
+  // Remove confetti pieces to keep DOM clean
+  $('celebration-overlay').querySelectorAll('.confetti-piece').forEach(el => el.remove());
+}
+
+// Tap anywhere on overlay to dismiss
+$('celebration-overlay').addEventListener('click', hideCelebration);
+
+// ─── Confetti Generator ───────────────────────────────────────
+const CONFETTI_COLORS = [
+  '#52b788','#2d6a4f','#f59e0b','#fb7185',
+  '#a78bfa','#60a5fa','#fde047','#34d399','#f97316',
+];
+const CONFETTI_SHAPES = ['2px','50%']; // borderRadius values → square or circle
+
+function spawnConfetti(container) {
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < 30; i++) {   // restrained: 30 pieces
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+
+    const color    = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+    const shape    = CONFETTI_SHAPES[Math.floor(Math.random() * CONFETTI_SHAPES.length)];
+    const left     = Math.random() * 100;
+    const delay    = Math.random() * 0.8;
+    const duration = 1.6 + Math.random() * 1.2;
+    const size     = 4 + Math.random() * 5;        // smaller (4–9px vs 6–14px)
+
+    piece.style.cssText = `
+      left: ${left}vw;
+      top: -${size * 2}px;
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border-radius: ${shape};
+      animation-delay: ${delay}s;
+      animation-duration: ${duration}s;
+    `;
+    fragment.appendChild(piece);
+  }
+  container.appendChild(fragment);
+}
+
+// ─── Collection Screen Renderer ───────────────────────────────
+function renderCollection() {
+  const col          = getCollection();
+  const entries      = Object.entries(col);   // [commonName, data]
+  const speciesCount = entries.length;
+
+  // Update hero counter
+  $('collection-count-num').textContent = speciesCount;
+
+  // Render milestones strip
+  renderMilestones(speciesCount);
+
+  // Render sticker grid or empty state
+  const gridWrap    = $('sticker-grid-wrap');
+  const sectionLabel = $('collection-section-label');
+  gridWrap.innerHTML = '';
+
+  if (speciesCount === 0) {
+    sectionLabel.style.display = 'none';
+    gridWrap.innerHTML = `
+      <div class="collection-empty">
+        <div class="emoji">🌴</div>
+        <p>Your collection is empty.<br>Identify your first palm to get started!</p>
+        <button class="btn btn-primary" onclick="showScreen('camera'); resetCameraScreen();">📷 Find a Palm</button>
+      </div>`;
+    return;
+  }
+
+  sectionLabel.style.display = '';
+
+  // Sort by firstSeen descending (newest first)
+  entries.sort((a, b) => new Date(b[1].firstSeen) - new Date(a[1].firstSeen));
+
+  const grid = document.createElement('div');
+  grid.className = 'sticker-grid';
+
+  entries.forEach(([commonName, data], idx) => {
+    // Determine discovery order (for milestone gold border)
+    // Re-sort by firstSeen ascending to get ordinal rank
+    const byDate = [...entries].sort((a,b) => new Date(a[1].firstSeen) - new Date(b[1].firstSeen));
+    const ordinal = byDate.findIndex(([n]) => n === commonName) + 1;
+    const isMilestone = MILESTONES.some(m => m.count === ordinal);
+
+    const gradClass  = STICKER_GRADIENTS[data.gradientIdx ?? (idx % STICKER_GRADIENTS.length)];
+    const firstDate  = new Date(data.firstSeen).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
+
+    const card = document.createElement('div');
+    card.className = `sticker-card ${gradClass}${isMilestone ? ' milestone-gold' : ''}`;
+    // Stagger pop animation
+    card.style.animationDelay = `${idx * 0.05}s`;
+
+    card.innerHTML = `
+      ${data.count > 1 ? `<div class="sticker-count-pill">×${data.count}</div>` : ''}
+      <div class="sticker-emoji">🌴</div>
+      <div class="sticker-name">${escHtml(commonName)}</div>
+      <div class="sticker-sci">${escHtml(data.scientificName)}</div>
+      <div class="sticker-date">First found: ${firstDate}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  gridWrap.appendChild(grid);
+}
+
+function renderMilestones(speciesCount) {
+  const strip = $('milestones-strip');
+  strip.innerHTML = '';
+
+  MILESTONES.forEach(m => {
+    const earned = speciesCount >= m.count;
+    const chip = document.createElement('div');
+    chip.className = `milestone-chip ${earned ? 'earned' : 'locked'}`;
+    chip.setAttribute('aria-label', `${m.label} milestone — ${earned ? 'earned' : 'locked'}`);
+    chip.innerHTML = `
+      <div class="mc-emoji">${m.emoji}</div>
+      <div class="mc-label">${m.label}</div>
+    `;
+    strip.appendChild(chip);
+  });
+}
+
+// ─── Small HTML escape helper ─────────────────────────────────
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FEATURE 1 — GPS + History Map View
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Attempt to get the device's current GPS coordinates.
+ * Resolves to {lat, lng} on success, or null if denied/unavailable/timeout.
+ * Never rejects — GPS failure must not block identification.
+ */
+function getGPSCoords() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      ()  => resolve(null),   // denied or error
+      { timeout: 8000, maximumAge: 60000, enableHighAccuracy: false }
+    );
+  });
+}
+
+/** Switch between List and Map views on the History screen. */
+function toggleHistoryView(mode) {
+  historyViewMode = mode;
+
+  $('history-btn-list').classList.toggle('active', mode === 'list');
+  $('history-btn-map').classList.toggle('active', mode === 'map');
+
+  const listEl = $('history-list');
+  const mapEl  = $('history-map-container');
+
+  if (mode === 'list') {
+    listEl.style.display = '';
+    mapEl.classList.add('hidden');
+  } else {
+    listEl.style.display = 'none';
+    mapEl.classList.remove('hidden');
+    renderHistoryMap();
+  }
+}
+
+/** Render (or refresh) the Leaflet map with pins for all geotagged entries. */
+function renderHistoryMap() {
+  const history = getHistory().filter(e => e.lat != null && e.lng != null);
+
+  // Lazy-init the Leaflet map
+  if (!leafletMap) {
+    leafletMap = L.map('history-map', { zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(leafletMap);
+  }
+
+  // Always call invalidateSize so the map paints correctly after unhiding
+  setTimeout(() => leafletMap.invalidateSize(), 50);
+
+  if (history.length === 0) {
+    // Center on South Florida if no data
+    leafletMap.setView([25.77, -80.19], 11);
+    return;
+  }
+
+  // Clear old markers
+  leafletMap.eachLayer(layer => {
+    if (layer instanceof L.Marker) leafletMap.removeLayer(layer);
+  });
+
+  const bounds = [];
+
+  history.forEach(entry => {
+    const r       = entry.result;
+    const dateStr = new Date(entry.date).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
+    const feedbackEmoji = entry.feedback === 'correct' ? '👍'
+                        : entry.feedback === 'wrong'   ? '👎'
+                        : entry.feedback === 'unsure'  ? '🤷' : '';
+
+    const marker = L.marker([entry.lat, entry.lng]);
+    marker.bindPopup(`
+      <div style="min-width:160px">
+        <strong>${escHtml(r.commonName || 'Unknown Palm')}</strong><br>
+        <em style="font-size:.85em">${escHtml(r.scientificName || '')}</em><br>
+        <span style="font-size:.8em;color:#666">${dateStr}</span>
+        ${feedbackEmoji ? `<br><span style="font-size:.9em">${feedbackEmoji}</span>` : ''}
+        ${entry.imageData ? `<br><img src="${entry.imageData}" style="margin-top:6px;width:100%;border-radius:6px">` : ''}
+      </div>
+    `);
+    marker.addTo(leafletMap);
+    bounds.push([entry.lat, entry.lng]);
+  });
+
+  // Fit to all markers
+  if (bounds.length === 1) {
+    leafletMap.setView(bounds[0], 15);
+  } else {
+    leafletMap.fitBounds(bounds, { padding: [30, 30] });
+  }
+}
+
+// History view toggle button listeners
+$('history-btn-list').addEventListener('click', () => toggleHistoryView('list'));
+$('history-btn-map').addEventListener('click',  () => toggleHistoryView('map'));
+
+
+/* ═══════════════════════════════════════════════════════════
+   FEATURE 2 — Ask More (Follow-up Chat Panel)
+   ═══════════════════════════════════════════════════════════ */
+
+function openAskMore() {
+  if (!currentAskMorePalm) return;
+  $('ask-more-title').textContent = `Ask about ${currentAskMorePalm.commonName || 'this palm'}`;
+  // Clear previous messages
+  const msgBox = $('ask-more-messages');
+  // Remove chat bubbles but keep the empty-state div
+  msgBox.querySelectorAll('.chat-bubble,.typing-indicator').forEach(el => el.remove());
+  $('ask-more-empty').style.display = askMoreConversation.length === 0 ? '' : 'none';
+  // Re-render any previous bubbles in this session
+  askMoreConversation.forEach(msg => {
+    if (msg.role !== 'system') appendChatBubble(msg.content, msg.role === 'user');
+  });
+  $('ask-more-input').value = '';
+  $('ask-more-backdrop').classList.remove('hidden');
+  $('ask-more-panel').classList.add('open');
+  setTimeout(() => $('ask-more-input').focus(), 350);
+}
+
+function closeAskMore() {
+  $('ask-more-panel').classList.remove('open');
+  $('ask-more-backdrop').classList.add('hidden');
+}
+
+function appendChatBubble(text, isUser) {
+  const msgBox = $('ask-more-messages');
+  $('ask-more-empty').style.display = 'none';
+  const div = document.createElement('div');
+  div.className = isUser ? 'chat-bubble user' : 'chat-bubble assistant';
+  div.textContent = text;
+  msgBox.appendChild(div);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+function showTypingIndicator() {
+  const msgBox = $('ask-more-messages');
+  const ind = document.createElement('div');
+  ind.className = 'typing-indicator';
+  ind.id = 'typing-indicator';
+  ind.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  msgBox.appendChild(ind);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+function hideTypingIndicator() {
+  const ind = document.getElementById('typing-indicator');
+  if (ind) ind.remove();
+}
+
+async function sendAskMoreMessage() {
+  const input  = $('ask-more-input');
+  const text   = input.value.trim();
+  if (!text || askMoreSending) return;
+
+  const apiKey = localStorage.getItem(STORAGE_KEY_APIKEY);
+  if (!apiKey) {
+    alert('Please enter your Anthropic API key in Settings first.');
+    return;
+  }
+
+  askMoreSending = true;
+  $('ask-more-send').disabled = true;
+  input.value = '';
+
+  appendChatBubble(text, true);
+  showTypingIndicator();
+
+  // Build conversation: start with system context about the palm
+  const palmContext = currentAskMorePalm
+    ? `The user is asking follow-up questions about a palm tree that was just identified as: ${currentAskMorePalm.commonName} (${currentAskMorePalm.scientificName || 'unknown'}). Description: ${currentAskMorePalm.description || ''}. You are a South Florida palm expert. Answer helpfully and concisely.`
+    : 'You are a South Florida palm expert. Answer helpfully and concisely.';
+
+  // Append the new user message to conversation history
+  askMoreConversation.push({ role: 'user', content: text });
+
+  const payload = {
+    model:      API_MODEL,
+    max_tokens: 512,
+    system:     palmContext,
+    messages:   askMoreConversation.map(m => ({ role: m.role, content: m.content })),
+  };
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type':      'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      let errMsg = `API error ${response.status}`;
+      try { errMsg = JSON.parse(errBody).error?.message || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+
+    const data    = await response.json();
+    const aiReply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+
+    hideTypingIndicator();
+    appendChatBubble(aiReply, false);
+
+    // Save assistant reply to history for multi-turn context
+    askMoreConversation.push({ role: 'assistant', content: aiReply });
+
+  } catch (err) {
+    hideTypingIndicator();
+    appendChatBubble(`Error: ${err.message}`, false);
+    // Remove the failed user message from history so it can be retried
+    askMoreConversation.pop();
+  } finally {
+    askMoreSending = false;
+    $('ask-more-send').disabled = false;
+    input.focus();
+  }
+}
+
+// Ask More button event listeners
+$('ask-more-btn').addEventListener('click', openAskMore);
+$('ask-more-close').addEventListener('click', closeAskMore);
+$('ask-more-backdrop').addEventListener('click', closeAskMore);
+$('ask-more-send').addEventListener('click', sendAskMoreMessage);
+$('ask-more-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAskMoreMessage(); }
+});
+
+
+/* ═══════════════════════════════════════════════════════════
+   FEATURE 3 — Feedback Buttons + Export
+   ═══════════════════════════════════════════════════════════ */
+
+/** Handle tapping one of the three feedback buttons on the results screen. */
+function selectFeedback(value) {
+  // Update button visual states
+  document.querySelectorAll('.feedback-btn').forEach(btn => {
+    btn.classList.remove('selected-correct','selected-unsure','selected-wrong');
+    if (btn.dataset.fb === value) {
+      btn.classList.add(`selected-${value}`);
+    }
+  });
+
+  // Persist to the history entry
+  if (currentHistoryEntryId) {
+    updateHistoryFeedback(currentHistoryEntryId, value);
+  }
+}
+
+/** Find the history entry by id and update its feedback field. */
+function updateHistoryFeedback(entryId, feedback) {
+  const history = getHistory();
+  const idx = history.findIndex(e => e.id === entryId);
+  if (idx === -1) return;
+  history[idx].feedback = feedback;
+  localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+}
+
+/** Wire up the three feedback buttons via event delegation. */
+document.querySelectorAll('.feedback-btn').forEach(btn => {
+  btn.addEventListener('click', () => selectFeedback(btn.dataset.fb));
+});
+
+/** Export all history entries that have feedback as a JSON download. */
+function exportFeedback() {
+  const history = getHistory();
+  const withFeedback = history
+    .filter(e => e.feedback)
+    .map(({ id, date, result, lat, lng, feedback }) => ({
+      id, date, feedback, lat, lng,
+      commonName:     result.commonName     || null,
+      scientificName: result.scientificName || null,
+      confidence:     result.confidence     || null,
+      // omit imageData (base64) to keep file small
+    }));
+
+  if (withFeedback.length === 0) {
+    alert('No feedback recorded yet. Use the "How\'d we do?" buttons after each identification.');
+    return;
+  }
+
+  const blob = new Blob([JSON.stringify(withFeedback, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'palm-id-feedback.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+$('export-feedback-btn').addEventListener('click', exportFeedback);
+
+
+/* ═══════════════════════════════════════════════════════════
+   FEATURE 5 — Notes on Sightings
+   ═══════════════════════════════════════════════════════════ */
+
+$('note-trigger-btn').addEventListener('click', () => {
+  $('note-expand').classList.remove('hidden');
+  $('note-trigger-btn').style.display = 'none';
+  $('note-textarea').focus();
+});
+
+$('save-note-btn').addEventListener('click', () => {
+  const noteText = $('note-textarea').value.trim();
+  if (!noteText) { $('note-textarea').focus(); return; }
+
+  if (currentHistoryEntryId) {
+    updateHistoryNote(currentHistoryEntryId, noteText);
+  }
+
+  // Show confirmation, then collapse
+  $('note-saved-msg').classList.remove('hidden');
+  setTimeout(() => {
+    $('note-saved-msg').classList.add('hidden');
+    $('note-expand').classList.add('hidden');
+    $('note-trigger-btn').textContent   = '📝 Note saved';
+    $('note-trigger-btn').style.display = '';
+  }, 1200);
+});
+
+function updateHistoryNote(entryId, note) {
+  const history = getHistory();
+  const idx = history.findIndex(e => e.id === entryId);
+  if (idx === -1) return;
+  history[idx].note = note;
+  localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   PALM OF THE DAY
+   ═══════════════════════════════════════════════════════════ */
+
+const POTD_DATA = [
+  { name: 'Royal Palm',              sci: 'Roystonea regia',          fact: 'Can reach 100 ft and lines some of the most iconic boulevards in Miami and Havana.' },
+  { name: 'Coconut Palm',            sci: 'Cocos nucifera',            fact: 'Has crossed every ocean on its own — coconuts float for months without losing viability.' },
+  { name: 'Bottle Palm',             sci: 'Hyophorbe lagenicaulis',    fact: 'Native only to tiny Round Island near Mauritius — critically endangered in the wild, thriving in yards everywhere else.' },
+  { name: 'Bismarck Palm',           sci: 'Bismarckia nobilis',        fact: 'Named after Otto von Bismarck; its silver-blue fans can span 10 feet across.' },
+  { name: 'Foxtail Palm',            sci: 'Wodyetia bifurcata',        fact: 'Only discovered by Western botanists in 1978 — indigenous Australians had kept its location a closely guarded secret.' },
+  { name: 'Canary Island Date Palm', sci: 'Phoenix canariensis',       fact: 'A single mature specimen can cost $50,000 to transplant due to the sheer size of its root ball.' },
+  { name: 'Sabal Palm',              sci: 'Sabal palmetto',            fact: "Florida's state tree; its spongy wood absorbed British cannonballs so effectively during the Revolutionary War that Fort Moultrie held." },
+  { name: 'Chilean Wine Palm',       sci: 'Jubaea chilensis',          fact: 'Has the world\'s thickest palm trunk — up to 5 feet in diameter — and can live over 1,000 years.' },
+  { name: 'Areca Palm',              sci: 'Dypsis lutescens',          fact: 'One of the most popular houseplants on Earth; NASA studies found it among the best natural air purifiers.' },
+  { name: 'Spindle Palm',            sci: 'Hyophorbe verschaffeltii',  fact: 'Nearly extinct on its native Rodrigues Island, yet so common in South Florida landscaping you\'ll see it on almost every block.' },
+  { name: 'Christmas Palm',          sci: 'Adonidia merrillii',        fact: 'Gets its name from clusters of bright red fruit that ripen right on schedule every December.' },
+  { name: 'Windmill Palm',           sci: 'Trachycarpus fortunei',     fact: 'The hardiest palm in cultivation — survives temperatures as low as 5°F (−15°C) and grows in Scotland.' },
+  { name: 'African Oil Palm',        sci: 'Elaeis guineensis',         fact: 'Produces more edible oil per acre than any other plant; palm oil appears in roughly half of all packaged foods worldwide.' },
+  { name: 'Talipot Palm',            sci: 'Corypha umbraculifera',     fact: 'Produces the largest flower cluster of any plant on Earth, with millions of blooms — then dies immediately, having flowered just once in 30–80 years.' },
+  { name: 'Coco de Mer',             sci: 'Lodoicea maldivica',        fact: 'Bears the largest seed of any plant — a single nut can weigh 55 lbs and takes up to 7 years to germinate.' },
+  { name: 'Silver Palm',             sci: 'Coccothrinax argentata',    fact: 'The brilliant silver underside of each frond comes from a waxy coating that reflects heat and deters insects.' },
+  { name: 'Buccaneer Palm',          sci: 'Pseudophoenix sargentii',   fact: 'One of Florida\'s rarest native palms — only a few hundred remain in the wild across the Florida Keys.' },
+  { name: 'Peach Palm',              sci: 'Bactris gasipaes',          fact: 'Cultivated in the Amazon for over 3,000 years; its nutritious orange fruit sustains both people and wildlife through lean seasons.' },
+  { name: 'Mediterranean Fan Palm',  sci: 'Chamaerops humilis',        fact: 'The only palm native to continental Europe, found wild along the Mediterranean coast from Portugal to Italy.' },
+  { name: 'Macaw Palm',              sci: 'Acrocomia aculeata',        fact: 'Its trunk is armored with dense black spines up to 4 inches long — impenetrable enough that scarlet macaws nest inside the crown without fear.' },
+  { name: 'Old Man Palm',            sci: 'Coccothrinax crinita',      fact: 'The shaggy hair-like fibers covering its trunk are persistent leaf bases — it can take decades to grow just 6 feet tall.' },
+  { name: 'King Palm',               sci: 'Archontophoenix cunninghamiana', fact: 'When a king palm falls in a rainforest, it decomposes so fast it becomes a \'nurse log\' — other trees sprout directly from its remains.' },
+  { name: 'California Fan Palm',     sci: 'Washingtonia filifera',     fact: 'The only palm native to the American West; its desert oasis groves in the Sonoran have been shading travelers for thousands of years.' },
+  { name: 'Sago Palm',               sci: 'Cycas revoluta',            fact: 'Not actually a palm at all — it\'s a cycad, a living fossil essentially unchanged for 200 million years, predating the dinosaurs.' },
+  { name: 'Açaí Palm',               sci: 'Euterpe oleracea',          fact: 'Sustainably harvesting wild açaí is more profitable per acre than clear-cutting the same land for cattle ranching.' },
+  { name: 'Sugar Palm',              sci: 'Arenga pinnata',            fact: 'Every single part is useful: sap for sugar and palm wine, fibers for rope, starchy pith for food, leaves for thatching.' },
+  { name: 'Puerto Rico Hat Palm',    sci: 'Sabal causiarum',           fact: 'The stiff, durable fronds were traditionally woven into the iconic jíbaro hats that became a symbol of Puerto Rican identity.' },
+  { name: 'Montgomery Palm',         sci: 'Veitchia montgomeryana',    fact: 'Named after Col. Robert Montgomery, the Miami banker whose private garden became Fairchild Tropical Botanic Garden.' },
+  { name: 'Queen Palm',              sci: 'Syagrus romanzoffiana',     fact: 'Originally from South America, it has now been planted so widely that it\'s practically the default palm of suburban streets worldwide.' },
+  { name: 'Mexican Fan Palm',        sci: 'Washingtonia robusta',      fact: 'The iconic tall, slender silhouette lining Sunset Boulevard in LA can reach 100 ft — and those trees were planted in the 1930s.' },
+];
+
+function renderPalmOfTheDay() {
+  // Pick deterministically by day (same palm all day, rotates daily)
+  const dayIndex = Math.floor(Date.now() / 86400000) % POTD_DATA.length;
+  const palm     = POTD_DATA[dayIndex];
+  $('potd-name').textContent = palm.name;
+  $('potd-sci').textContent  = palm.sci;
+  $('potd-fact').textContent = palm.fact;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   HISTORY SEARCH
+   ═══════════════════════════════════════════════════════════ */
+
+$('history-search-input').addEventListener('input', () => {
+  const q = $('history-search-input').value.trim().toLowerCase();
+  const items = $('history-list').querySelectorAll('.history-item');
+  let visibleCount = 0;
+
+  items.forEach(item => {
+    const name = (item.dataset.commonName || '').toLowerCase();
+    const sci  = (item.dataset.sciName    || '').toLowerCase();
+    const match = !q || name.includes(q) || sci.includes(q);
+    item.style.display = match ? '' : 'none';
+    if (match) visibleCount++;
+  });
+
+  // Show/hide the "no results" message
+  let noResults = $('history-search-no-results');
+  if (!noResults) {
+    noResults = document.createElement('div');
+    noResults.id = 'history-search-no-results';
+    noResults.className = 'history-search-empty';
+    $('history-list').appendChild(noResults);
+  }
+  if (q && visibleCount === 0) {
+    noResults.textContent = `No palms matching "${q}"`;
+    noResults.style.display = '';
+  } else {
+    noResults.style.display = 'none';
+  }
+});
+
+
+/* ═══════════════════════════════════════════════════════════
+   FEATURE 6 — Share Button
+   ═══════════════════════════════════════════════════════════ */
+
+/** Render a 1080×1080 share card onto a canvas and return it. */
+function buildShareCanvas(imageDataUrl, commonName, sciName) {
+  return new Promise(resolve => {
+    const SIZE = 1080;
+    const c   = document.createElement('canvas');
+    c.width = c.height = SIZE;
+    const ctx = c.getContext('2d');
+
+    const img = new Image();
+    img.onload = () => {
+      // Object-fit: cover
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const w = img.width  * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (SIZE - w) / 2, (SIZE - h) / 2, w, h);
+
+      // Dark green gradient overlay — bottom 35%
+      const grad = ctx.createLinearGradient(0, SIZE * 0.62, 0, SIZE);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(10,40,25,0.86)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, SIZE, SIZE);
+
+      // Drop shadow for text legibility
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur  = 10;
+
+      // Common name — bold ~48px
+      ctx.fillStyle = 'white';
+      ctx.font      = 'bold 52px -apple-system, BlinkMacSystemFont, Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(commonName, 52, SIZE - 106);
+
+      // Scientific name — italic ~28px
+      ctx.font      = 'italic 30px -apple-system, BlinkMacSystemFont, Arial, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.82)';
+      ctx.fillText(sciName || '', 52, SIZE - 62);
+
+      // Watermark — bottom-right
+      ctx.shadowBlur  = 0;
+      ctx.font        = '22px -apple-system, BlinkMacSystemFont, Arial, sans-serif';
+      ctx.fillStyle   = 'rgba(255,255,255,0.48)';
+      ctx.textAlign   = 'right';
+      ctx.fillText('Palm ID 🌴', SIZE - 30, SIZE - 28);
+
+      resolve(c);
+    };
+    img.src = imageDataUrl;
+  });
+}
+
+/** Share the current result using Web Share API (with canvas image on mobile),
+ *  or show a dropdown on desktop. */
+async function shareResult() {
+  if (!currentResult || !currentResult.isPalm) return;
+
+  const commonName = currentResult.commonName || 'Unknown Palm';
+  const sciName    = currentResult.scientificName || '';
+  const imageUrl   = (currentImages[0] || {}).thumbUrl || currentThumbDataUrl;
+  const shareText  = `${commonName} (${sciName}) — identified with Palm ID 🌴`;
+
+  if (navigator.share) {
+    try {
+      const canvas = await buildShareCanvas(imageUrl, commonName, sciName);
+
+      // Try file sharing (iOS 15+)
+      const shared = await new Promise(resolve => {
+        canvas.toBlob(async blob => {
+          const file = new File([blob], 'palm-id.jpg', { type: 'image/jpeg' });
+          const data = { title: commonName, text: shareText, files: [file] };
+          if (navigator.canShare && navigator.canShare(data)) {
+            try {
+              await navigator.share(data);
+              resolve(true);
+              return;
+            } catch (e) {
+              if (e.name === 'AbortError') { resolve(true); return; }
+            }
+          }
+          resolve(false);
+        }, 'image/jpeg', 0.88);
+      });
+
+      if (!shared) {
+        // Fall back to text-only share
+        await navigator.share({ title: commonName, text: shareText });
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') console.warn('Share failed:', err);
+    }
+  } else {
+    // Desktop: toggle the dropdown
+    toggleShareDropdown();
+  }
+}
+
+function toggleShareDropdown(forceClose) {
+  const dd = $('share-dropdown');
+  const shouldClose = forceClose || !dd.classList.contains('hidden');
+  dd.classList.toggle('hidden', shouldClose);
+}
+
+// Close dropdown when clicking anywhere outside the share wrap
+document.addEventListener('click', e => {
+  if (!e.target.closest('.share-btn-wrap')) {
+    $('share-dropdown').classList.add('hidden');
+  }
+});
+
+$('share-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  shareResult();
+});
+
+$('share-copy-btn').addEventListener('click', async () => {
+  $('share-dropdown').classList.add('hidden');
+  if (!currentResult || !currentResult.isPalm) return;
+  const commonName = currentResult.commonName || 'Unknown Palm';
+  const sciName    = currentResult.scientificName || '';
+  const text       = `${commonName} (${sciName}) — identified with Palm ID 🌴`;
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = $('share-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1800);
+  } catch {
+    alert('Copy manually:\n' + text);
+  }
+});
+
+$('share-download-btn').addEventListener('click', async () => {
+  $('share-dropdown').classList.add('hidden');
+  if (!currentResult || !currentResult.isPalm) return;
+  const commonName = currentResult.commonName || 'Unknown Palm';
+  const sciName    = currentResult.scientificName || '';
+  const imageUrl   = (currentImages[0] || {}).thumbUrl || currentThumbDataUrl;
+  try {
+    const canvas = await buildShareCanvas(imageUrl, commonName, sciName);
+    canvas.toBlob(blob => {
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `palm-id-${commonName.toLowerCase().replace(/\s+/g, '-')}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 'image/jpeg', 0.88);
+  } catch (err) {
+    console.error('Download failed:', err);
+  }
+});
+
+
+// ─── Service Worker Registration ─────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('[Palm ID] SW registered:', reg.scope))
+      .catch(err => console.warn('[Palm ID] SW registration failed:', err));
+  });
+}
+
+
+// ─── Icon Generation via Canvas ──────────────────────────────
+// Generate a canvas-based icon and set it as the apple-touch-icon
+// This runs once on load so the icon appears if the user adds to home screen
+// (PNG files generated by generate_icons.py take precedence via manifest)
+(function generateInlineIcon() {
+  try {
+    const SIZE = 180;
+    const c = document.createElement('canvas');
+    c.width = c.height = SIZE;
+    const ctx = c.getContext('2d');
+
+    // Background circle gradient
+    const grad = ctx.createRadialGradient(SIZE/2, SIZE/2, 10, SIZE/2, SIZE/2, SIZE/2);
+    grad.addColorStop(0, '#52b788');
+    grad.addColorStop(1, '#1b4332');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI*2);
+    ctx.fill();
+
+    // Palm emoji
+    ctx.font = `${SIZE * 0.58}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🌴', SIZE/2, SIZE/2 + SIZE*0.04);
+
+    // Set as apple-touch-icon
+    $('apple-touch-icon').href = c.toDataURL('image/png');
+  } catch(e) {
+    // Non-critical, ignore errors
+  }
+})();
+
+
+// ─── Init ─────────────────────────────────────────────────────
+showScreen('home');
+updateHomeCounter();
+renderPalmOfTheDay();
+
+console.log('[Palm ID] App initialized 🌴');
+</script>
+</body>
+</html>
