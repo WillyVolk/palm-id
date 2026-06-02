@@ -14,6 +14,17 @@ A progressive web app that identifies palm trees from photos using Claude. Point
 - **Answers follow-up questions** about any identified palm in a short chat
 - **Installs like an app** and loads instantly offline (it's a PWA), with no server, account, or backend
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="assets/home.png" width="200" alt="Home screen"><br><sub><b>Point and identify</b></sub></td>
+    <td align="center" width="25%"><img src="assets/result.png" width="200" alt="Identification result"><br><sub><b>Species, with the why</b></sub></td>
+    <td align="center" width="25%"><img src="assets/collection.png" width="200" alt="Species collection"><br><sub><b>A collection you build</b></sub></td>
+    <td align="center" width="25%"><img src="assets/map.png" width="200" alt="Map of sightings"><br><sub><b>Every sighting, mapped</b></sub></td>
+  </tr>
+</table>
+
 ## Why I built it
 
 South Florida has hundreds of palm species in the wild and in landscaping, and I kept misidentifying them. The commonly confused pairs are genuinely tricky — Bottle Palm vs Spindle Palm look nearly identical until you learn to read the trunk shape. I wanted something I could pull out mid-walk that would tell me not just the name but *why* it's that species and not the similar one next to it.
