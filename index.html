@@ -41,13 +41,16 @@
       --radius-sm:  10px;
       --safe-top:   env(safe-area-inset-top, 0px);
       --safe-bot:   env(safe-area-inset-bottom, 0px);
-      /* App column width. Touch devices (phones AND tablets) fill the
-         whole viewport; only true desktop browsers get the centered
-         430px phone-frame. Prevents the "narrow strip" on iPads. */
+      /* App column width. Touch devices fill the whole viewport; only true
+         desktop browsers (mouse) get the centered 430px phone-frame.
+         Safety net for when the layout viewport renders wider than the
+         device — e.g. Safari "Request Desktop Website" laying the page out
+         at ~780px. Without this, #app caps at 430 and floats in a narrow
+         centered column with body-coloured gutters (the "tall skinny strip"). */
       --app-w:      100%;
     }
 
-    /* Desktop (mouse) only: constrain to a phone-shaped column. */
+    /* Desktop (mouse, hover-capable) only: constrain to a phone-shaped column. */
     @media (hover: hover) and (pointer: fine) {
       :root { --app-w: 430px; }
     }
