@@ -41,6 +41,15 @@
       --radius-sm:  10px;
       --safe-top:   env(safe-area-inset-top, 0px);
       --safe-bot:   env(safe-area-inset-bottom, 0px);
+      /* App column width. Touch devices (phones AND tablets) fill the
+         whole viewport; only true desktop browsers get the centered
+         430px phone-frame. Prevents the "narrow strip" on iPads. */
+      --app-w:      100%;
+    }
+
+    /* Desktop (mouse) only: constrain to a phone-shaped column. */
+    @media (hover: hover) and (pointer: fine) {
+      :root { --app-w: 430px; }
     }
 
     /* ─── Reset & Base ───────────────────────────────── */
@@ -60,7 +69,7 @@
     /* ─── App Shell ──────────────────────────────────── */
     #app {
       width: 100%;
-      max-width: 430px;
+      max-width: var(--app-w);
       margin: 0 auto;
       min-height: 100%;
       display: flex;
@@ -1267,7 +1276,7 @@
       left: 50%;
       transform: translateX(-50%) translateY(100%);
       width: 100%;
-      max-width: 430px;
+      max-width: var(--app-w);
       height: 62%;
       background: var(--card-bg);
       border-radius: 22px 22px 0 0;
@@ -1639,7 +1648,7 @@
       left: 50%;
       transform: translateX(-50%);
       width: 100%;
-      max-width: 430px;
+      max-width: var(--app-w);
       background: white;
       border-top: 1px solid #e8e8e8;
       display: flex;
@@ -1684,7 +1693,7 @@
       left: 50%;
       transform: translateX(-50%) translateY(100%);
       width: 100%;
-      max-width: 430px;
+      max-width: var(--app-w);
       background: var(--card-bg);
       border-radius: 24px 24px 0 0;
       box-shadow: 0 -8px 40px rgba(0,0,0,.22);
